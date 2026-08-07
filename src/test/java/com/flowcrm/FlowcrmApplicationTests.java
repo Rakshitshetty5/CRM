@@ -1,4 +1,4 @@
-package com.flowcrm.flowcrm;
+package com.flowcrm;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
