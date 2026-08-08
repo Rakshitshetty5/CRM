@@ -19,7 +19,7 @@ import java.util.UUID;
                 @Index(name = "idx_user_email", columnList = "email")
         }
 )
-public class UserEntity extends BaseEntity {
+public class User extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
