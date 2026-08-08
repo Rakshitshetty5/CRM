@@ -20,6 +20,8 @@ spring:
 
 jwt:
   secret-key: dont-use-in-prod-a9asd7fulasjdfaklsdfu98q3uhjdiosh897as9d8f7ua9osufdjilasdjf
+  access-token-expiration-ms: 86400000 # 24 hours in ms
+  refresh-token-expiration-ms: 604800000 # 7 days in ms
 
 app:
   rate-limit:
