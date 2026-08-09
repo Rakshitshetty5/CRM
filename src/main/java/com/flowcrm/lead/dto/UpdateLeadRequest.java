@@ -6,8 +6,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-import java.util.UUID;
-
 public record UpdateLeadRequest(
 
         @NotBlank(message = "First name is required")
@@ -31,9 +29,6 @@ public record UpdateLeadRequest(
 
         @NotNull(message = "Lead source is required")
         LeadSource source,
-
-        @NotNull(message = "Assigned user is required")
-        UUID assignedTo,
 
         @Size(max = 2000, message = "Notes must not exceed 2000 characters")
         String notes

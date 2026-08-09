@@ -1,5 +1,6 @@
 package com.flowcrm.auth.security;
 
+import com.flowcrm.common.security.UserContext;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,6 +23,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final CustomUserDetailsService userDetailsService;
+    private final UserContext userContext;
 
     @Override
     protected void doFilterInternal(
@@ -45,6 +47,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     );
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                    if (userDetails instanceof UserPrincipal userPrincipal) {
+                        userContext.setUserId(userPrincipal.getId());
+                    }
                 }
             }
         }
@@ -60,3 +66,4 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return null;
     }
 }
+
