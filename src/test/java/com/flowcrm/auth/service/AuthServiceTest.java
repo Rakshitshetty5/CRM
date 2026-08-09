@@ -14,6 +14,9 @@ import com.flowcrm.auth.security.UserPrincipal;
 import com.flowcrm.common.enums.Role;
 import com.flowcrm.common.exception.EmailAlreadyExistsException;
 import com.flowcrm.common.exception.InvalidTokenException;
+import com.flowcrm.common.exception.OrganizationAlreadyExistsException;
+import com.flowcrm.organization.entity.Organization;
+import com.flowcrm.organization.repository.OrganizationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -46,6 +49,9 @@ class AuthServiceTest {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Mock
+    private OrganizationRepository organizationRepository;
+
+    @Mock
     private PasswordEncoder passwordEncoder;
 
     @Mock
@@ -58,26 +64,36 @@ class AuthServiceTest {
     private AuthServiceImpl authService;
 
     private User testUser;
+    private Organization testOrg;
 
     @BeforeEach
     void setUp() {
+        testOrg = Organization.builder()
+                .id(UUID.randomUUID())
+                .name("FlowCRM")
+                .slug("flowcrm")
+                .build();
+
         testUser = User.builder()
                 .id(UUID.randomUUID())
                 .firstName("John")
                 .lastName("Doe")
                 .email("john.doe@example.com")
                 .password("encoded_password")
-                .role(Role.SALES_REP)
+                .role(Role.ADMIN)
                 .active(true)
+                .organization(testOrg)
                 .build();
     }
 
     @Test
     @DisplayName("Register - Success")
     void register_Success() {
-        RegisterRequest request = new RegisterRequest("John", "Doe", "john.doe@example.com", "Password123!");
+        RegisterRequest request = new RegisterRequest("John", "Doe", "john.doe@example.com", "Password123!", "FlowCRM");
 
+        when(organizationRepository.existsByNameIgnoreCase(request.organizationName())).thenReturn(false);
         when(userRepository.existsByEmail(request.email())).thenReturn(false);
+        when(organizationRepository.save(any(Organization.class))).thenReturn(testOrg);
         when(passwordEncoder.encode(request.password())).thenReturn("encoded_password");
         when(userRepository.save(any(User.class))).thenReturn(testUser);
 
@@ -88,17 +104,30 @@ class AuthServiceTest {
         assertEquals("John", response.firstName());
         assertEquals("Doe", response.lastName());
         assertEquals("john.doe@example.com", response.email());
-        assertEquals(Role.SALES_REP, response.role());
+        assertEquals(Role.ADMIN, response.role());
 
         verify(refreshTokenRepository, never()).save(any());
         verify(jwtService, never()).generateAccessToken(any());
     }
 
     @Test
+    @DisplayName("Register - Throws OrganizationAlreadyExistsException when organization name exists")
+    void register_OrganizationAlreadyExists() {
+        RegisterRequest request = new RegisterRequest("John", "Doe", "john.doe@example.com", "Password123!", "FlowCRM");
+
+        when(organizationRepository.existsByNameIgnoreCase(request.organizationName())).thenReturn(true);
+
+        assertThrows(OrganizationAlreadyExistsException.class, () -> authService.register(request));
+        verify(organizationRepository, never()).save(any());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("Register - Throws EmailAlreadyExistsException when email exists")
     void register_EmailAlreadyExists() {
-        RegisterRequest request = new RegisterRequest("John", "Doe", "john.doe@example.com", "Password123!");
+        RegisterRequest request = new RegisterRequest("John", "Doe", "john.doe@example.com", "Password123!", "FlowCRM");
 
+        when(organizationRepository.existsByNameIgnoreCase(request.organizationName())).thenReturn(false);
         when(userRepository.existsByEmail(request.email())).thenReturn(true);
 
         assertThrows(EmailAlreadyExistsException.class, () -> authService.register(request));

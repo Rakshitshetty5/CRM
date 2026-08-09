@@ -15,6 +15,7 @@ public record TaskResponse(
         LocalDateTime dueDate,
         UUID leadId,
         UUID assignedTo,
+        UUID createdBy,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

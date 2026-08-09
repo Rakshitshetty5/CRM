@@ -72,7 +72,7 @@ class TaskControllerTest {
         TaskResponse response = new TaskResponse(
                 taskId, "Send pricing details", "Send enterprise pricing PDF",
                 TaskStatus.PENDING, TaskPriority.HIGH, LocalDateTime.now().plusDays(2),
-                leadId, userId, LocalDateTime.now(), LocalDateTime.now()
+                leadId, userId, userId, LocalDateTime.now(), LocalDateTime.now()
         );
 
         when(taskService.createTask(any(CreateTaskRequest.class))).thenReturn(response);
@@ -96,7 +96,7 @@ class TaskControllerTest {
         TaskResponse response = new TaskResponse(
                 taskId, "Send pricing details", null,
                 TaskStatus.PENDING, TaskPriority.HIGH, LocalDateTime.now().plusDays(2),
-                leadId, userId, LocalDateTime.now(), LocalDateTime.now()
+                leadId, userId, userId, LocalDateTime.now(), LocalDateTime.now()
         );
 
         PageImpl<TaskResponse> page = new PageImpl<>(List.of(response), PageRequest.of(0, 20), 1);
@@ -124,7 +124,7 @@ class TaskControllerTest {
         TaskResponse response = new TaskResponse(
                 taskId, "Send pricing details", null,
                 TaskStatus.PENDING, TaskPriority.HIGH, LocalDateTime.now().plusDays(2),
-                leadId, userId, LocalDateTime.now(), LocalDateTime.now()
+                leadId, userId, userId, LocalDateTime.now(), LocalDateTime.now()
         );
 
         when(taskService.getTaskById(taskId)).thenReturn(response);
@@ -150,7 +150,7 @@ class TaskControllerTest {
         TaskResponse response = new TaskResponse(
                 taskId, "Updated title", "Updated description",
                 TaskStatus.PENDING, TaskPriority.MEDIUM, LocalDateTime.now().plusDays(3),
-                leadId, userId, LocalDateTime.now(), LocalDateTime.now()
+                leadId, userId, userId, LocalDateTime.now(), LocalDateTime.now()
         );
 
         when(taskService.updateTask(eq(taskId), any(UpdateTaskRequest.class))).thenReturn(response);
@@ -175,7 +175,7 @@ class TaskControllerTest {
         TaskResponse response = new TaskResponse(
                 taskId, "Send pricing details", null,
                 TaskStatus.COMPLETED, TaskPriority.HIGH, LocalDateTime.now().plusDays(2),
-                leadId, userId, LocalDateTime.now(), LocalDateTime.now()
+                leadId, userId, userId, LocalDateTime.now(), LocalDateTime.now()
         );
 
         when(taskService.updateTaskStatus(eq(taskId), any(UpdateTaskStatusRequest.class))).thenReturn(response);

@@ -15,9 +15,13 @@ public class LeadSpecification {
         // Private constructor for utility class
     }
 
-    public static Specification<Lead> filterLeads(LeadStatus status, UUID assignedTo, String search) {
+    public static Specification<Lead> filterLeads(UUID organizationId, LeadStatus status, UUID assignedTo, String search) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
+
+            if (organizationId != null) {
+                predicates.add(cb.equal(root.get("organization").get("id"), organizationId));
+            }
 
             if (status != null) {
                 predicates.add(cb.equal(root.get("status"), status));

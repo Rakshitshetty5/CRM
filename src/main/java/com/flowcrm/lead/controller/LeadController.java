@@ -3,6 +3,7 @@ package com.flowcrm.lead.controller;
 import com.flowcrm.common.enums.LeadStatus;
 import com.flowcrm.lead.dto.CreateLeadRequest;
 import com.flowcrm.lead.dto.LeadActivityResponse;
+import com.flowcrm.lead.dto.LeadAssignmentRequest;
 import com.flowcrm.lead.dto.LeadResponse;
 import com.flowcrm.lead.dto.UpdateLeadRequest;
 import com.flowcrm.lead.dto.UpdateLeadStatusRequest;
@@ -82,4 +83,14 @@ public class LeadController {
         List<LeadActivityResponse> response = leadService.getLeadActivities(leadId);
         return ResponseEntity.ok(response);
     }
+
+    @PatchMapping("/{leadId}/assignment")
+    public ResponseEntity<LeadResponse> assignLead(
+            @PathVariable UUID leadId,
+            @Valid @RequestBody LeadAssignmentRequest request
+    ) {
+        LeadResponse response = leadService.assignLead(leadId, request);
+        return ResponseEntity.ok(response);
+    }
 }
+

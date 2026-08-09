@@ -17,4 +17,5 @@ import java.util.UUID;
 public class UserContext {
 
     private UUID userId;
+    private UUID organizationId;
 }

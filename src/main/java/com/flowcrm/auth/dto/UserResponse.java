@@ -2,6 +2,7 @@ package com.flowcrm.auth.dto;
 
 import com.flowcrm.common.enums.Role;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record UserResponse(
@@ -9,6 +10,10 @@ public record UserResponse(
         String firstName,
         String lastName,
         String email,
-        Role role
+        Role role,
+        boolean active,
+        UUID organizationId,
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt
 ) {
 }

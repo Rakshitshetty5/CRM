@@ -1,10 +1,11 @@
 package com.flowcrm.auth.dto;
 
+import com.flowcrm.common.enums.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-public record RegisterRequest(
+public record CreateUserRequest(
 
         @NotBlank(message = "First name is required")
         @Size(max = 50, message = "First name must not exceed 50 characters")
@@ -23,8 +24,6 @@ public record RegisterRequest(
         @Size(min = 8, max = 100, message = "Password must be between 8 and 100 characters")
         String password,
 
-        @NotBlank(message = "Organization name is required")
-        @Size(max = 150, message = "Organization name must not exceed 150 characters")
-        String organizationName
+        Role role
 ) {
 }

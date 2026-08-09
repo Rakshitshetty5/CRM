@@ -38,6 +38,7 @@ public class JwtService {
         return Jwts.builder()
                 .subject(userPrincipal.getUsername())
                 .claim("userId", userPrincipal.getId().toString())
+                .claim("organizationId", userPrincipal.getOrganizationId() != null ? userPrincipal.getOrganizationId().toString() : null)
                 .claim("role", userPrincipal.getUser().getRole().name())
                 .issuedAt(now)
                 .expiration(expiryDate)

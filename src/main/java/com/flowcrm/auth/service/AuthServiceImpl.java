@@ -14,7 +14,11 @@ import com.flowcrm.auth.security.UserPrincipal;
 import com.flowcrm.common.enums.Role;
 import com.flowcrm.common.exception.EmailAlreadyExistsException;
 import com.flowcrm.common.exception.InvalidTokenException;
+import com.flowcrm.organization.entity.Organization;
+import com.flowcrm.organization.repository.OrganizationRepository;
 import lombok.RequiredArgsConstructor;
+import com.flowcrm.common.exception.OrganizationAlreadyExistsException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -31,6 +35,7 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final OrganizationRepository organizationRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
@@ -38,28 +43,67 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public UserResponse register(RegisterRequest request) {
+        if (organizationRepository.existsByNameIgnoreCase(request.organizationName())) {
+            throw new OrganizationAlreadyExistsException("Organization already exists with name: " + request.organizationName());
+        }
+
         if (userRepository.existsByEmail(request.email())) {
             throw new EmailAlreadyExistsException("Email already registered: " + request.email());
         }
 
-        User user = User.builder()
-                .firstName(request.firstName())
-                .lastName(request.lastName())
-                .email(request.email())
-                .password(passwordEncoder.encode(request.password()))
-                .role(Role.SALES_REP)
-                .active(true)
-                .build();
+        try {
+            String slug = generateSlug(request.organizationName());
+            Organization organization = Organization.builder()
+                    .name(request.organizationName())
+                    .slug(slug)
+                    .build();
+            Organization savedOrganization = organizationRepository.save(organization);
 
-        User savedUser = userRepository.save(user);
+            User user = User.builder()
+                    .firstName(request.firstName())
+                    .lastName(request.lastName())
+                    .email(request.email())
+                    .password(passwordEncoder.encode(request.password()))
+                    .role(Role.ADMIN)
+                    .active(true)
+                    .organization(savedOrganization)
+                    .build();
 
-        return new UserResponse(
-                savedUser.getId(),
-                savedUser.getFirstName(),
-                savedUser.getLastName(),
-                savedUser.getEmail(),
-                savedUser.getRole()
-        );
+            User savedUser = userRepository.save(user);
+
+            return new UserResponse(
+                    savedUser.getId(),
+                    savedUser.getFirstName(),
+                    savedUser.getLastName(),
+                    savedUser.getEmail(),
+                    savedUser.getRole(),
+                    savedUser.isActive(),
+                    savedUser.getOrganization() != null ? savedUser.getOrganization().getId() : null,
+                    savedUser.getCreatedAt(),
+                    savedUser.getUpdatedAt()
+            );
+        } catch (DataIntegrityViolationException ex) {
+            if (organizationRepository.existsByNameIgnoreCase(request.organizationName())) {
+                throw new OrganizationAlreadyExistsException("Organization already exists with name: " + request.organizationName());
+            }
+            if (userRepository.existsByEmail(request.email())) {
+                throw new EmailAlreadyExistsException("Email already registered: " + request.email());
+            }
+            throw new OrganizationAlreadyExistsException("Organization already exists with name: " + request.organizationName());
+        }
+    }
+
+    private String generateSlug(String name) {
+        String baseSlug = name.trim().toLowerCase().replaceAll("[^a-z0-9]+", "-").replaceAll("^-|-$", "");
+        if (baseSlug.isEmpty()) {
+            baseSlug = "org";
+        }
+        String slug = baseSlug;
+        int count = 1;
+        while (organizationRepository.existsBySlug(slug)) {
+            slug = baseSlug + "-" + count++;
+        }
+        return slug;
     }
 
     @Override

@@ -3,6 +3,7 @@ package com.flowcrm.lead.service;
 import com.flowcrm.auth.entity.User;
 import com.flowcrm.auth.repository.UserRepository;
 import com.flowcrm.auth.security.UserPrincipal;
+import com.flowcrm.common.security.UserContext;
 import com.flowcrm.common.enums.ActivityType;
 import com.flowcrm.common.enums.LeadSource;
 import com.flowcrm.common.enums.LeadStatus;
@@ -17,6 +18,7 @@ import com.flowcrm.lead.entity.Lead;
 import com.flowcrm.lead.entity.LeadActivity;
 import com.flowcrm.lead.repository.LeadActivityRepository;
 import com.flowcrm.lead.repository.LeadRepository;
+import com.flowcrm.organization.entity.Organization;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -53,14 +55,24 @@ class LeadServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private UserContext userContext;
+
     @InjectMocks
     private LeadServiceImpl leadService;
 
     private User authUser;
     private Lead testLead;
+    private Organization testOrg;
 
     @BeforeEach
     void setUp() {
+        testOrg = Organization.builder()
+                .id(UUID.randomUUID())
+                .name("FlowCRM")
+                .slug("flowcrm")
+                .build();
+
         authUser = User.builder()
                 .id(UUID.randomUUID())
                 .firstName("Admin")
@@ -69,6 +81,7 @@ class LeadServiceTest {
                 .password("password")
                 .role(Role.ADMIN)
                 .active(true)
+                .organization(testOrg)
                 .build();
 
         testLead = Lead.builder()
@@ -82,7 +95,10 @@ class LeadServiceTest {
                 .source(LeadSource.WEBSITE)
                 .notes("Interested in enterprise plan")
                 .assignedTo(authUser)
+                .organization(testOrg)
                 .build();
+
+        when(userContext.getUserId()).thenReturn(authUser.getId());
 
         UserPrincipal principal = new UserPrincipal(authUser);
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
@@ -127,6 +143,7 @@ class LeadServiceTest {
         Pageable pageable = PageRequest.of(0, 20);
         Page<Lead> leadPage = new PageImpl<>(List.of(testLead), pageable, 1);
 
+        when(userRepository.findById(authUser.getId())).thenReturn(Optional.of(authUser));
         when(leadRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(leadPage);
 
         Page<LeadResponse> result = leadService.getLeads(LeadStatus.NEW, authUser.getId(), "rahul", pageable);
@@ -140,7 +157,8 @@ class LeadServiceTest {
     @DisplayName("Get Lead By Id - Success")
     void getLeadById_Success() {
         UUID leadId = testLead.getId();
-        when(leadRepository.findById(leadId)).thenReturn(Optional.of(testLead));
+        when(userRepository.findById(authUser.getId())).thenReturn(Optional.of(authUser));
+        when(leadRepository.findByIdAndOrganizationId(leadId, testOrg.getId())).thenReturn(Optional.of(testLead));
 
         LeadResponse response = leadService.getLeadById(leadId);
 
@@ -152,7 +170,8 @@ class LeadServiceTest {
     @DisplayName("Get Lead By Id - Throws ResourceNotFoundException when lead not found")
     void getLeadById_NotFound() {
         UUID leadId = UUID.randomUUID();
-        when(leadRepository.findById(leadId)).thenReturn(Optional.empty());
+        when(userRepository.findById(authUser.getId())).thenReturn(Optional.of(authUser));
+        when(leadRepository.findByIdAndOrganizationId(eq(leadId), any())).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> leadService.getLeadById(leadId));
     }
@@ -166,8 +185,8 @@ class LeadServiceTest {
                 "ABC Tech Updated", LeadSource.REFERRAL, "Updated notes"
         );
 
-        when(leadRepository.findById(leadId)).thenReturn(Optional.of(testLead));
         when(userRepository.findById(authUser.getId())).thenReturn(Optional.of(authUser));
+        when(leadRepository.findByIdAndOrganizationId(leadId, testOrg.getId())).thenReturn(Optional.of(testLead));
         when(leadRepository.save(any(Lead.class))).thenReturn(testLead);
 
         LeadResponse response = leadService.updateLead(leadId, request);
@@ -190,8 +209,8 @@ class LeadServiceTest {
         UUID leadId = testLead.getId();
         UpdateLeadStatusRequest request = new UpdateLeadStatusRequest(LeadStatus.QUALIFIED);
 
-        when(leadRepository.findById(leadId)).thenReturn(Optional.of(testLead));
         when(userRepository.findById(authUser.getId())).thenReturn(Optional.of(authUser));
+        when(leadRepository.findByIdAndOrganizationId(leadId, testOrg.getId())).thenReturn(Optional.of(testLead));
         when(leadRepository.save(any(Lead.class))).thenReturn(testLead);
 
         LeadResponse response = leadService.updateLeadStatus(leadId, request);
@@ -220,7 +239,8 @@ class LeadServiceTest {
                 .performedBy(authUser)
                 .build();
 
-        when(leadRepository.existsById(leadId)).thenReturn(true);
+        when(userRepository.findById(authUser.getId())).thenReturn(Optional.of(authUser));
+        when(leadRepository.findByIdAndOrganizationId(leadId, testOrg.getId())).thenReturn(Optional.of(testLead));
         when(leadActivityRepository.findByLeadIdOrderByCreatedAtDesc(leadId)).thenReturn(List.of(activity));
 
         List<LeadActivityResponse> response = leadService.getLeadActivities(leadId);

@@ -5,6 +5,7 @@ import com.flowcrm.common.audit.BaseEntity;
 import com.flowcrm.common.enums.TaskPriority;
 import com.flowcrm.common.enums.TaskStatus;
 import com.flowcrm.lead.entity.Lead;
+import com.flowcrm.organization.entity.Organization;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -23,7 +24,8 @@ import java.util.UUID;
                 @Index(name = "idx_task_assigned_to", columnList = "assigned_to"),
                 @Index(name = "idx_task_status", columnList = "status"),
                 @Index(name = "idx_task_due_date", columnList = "due_date"),
-                @Index(name = "idx_task_lead", columnList = "lead_id")
+                @Index(name = "idx_task_lead", columnList = "lead_id"),
+                @Index(name = "idx_task_organization", columnList = "organization_id")
         }
 )
 public class Task extends BaseEntity {
@@ -56,4 +58,8 @@ public class Task extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "assigned_to", nullable = false)
     private User assignedTo;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id")
+    private Organization organization;
 }

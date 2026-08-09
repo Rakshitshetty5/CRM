@@ -16,12 +16,14 @@ public class UserPrincipal implements UserDetails {
     private final User user;
     private final UUID id;
     private final String email;
+    private final UUID organizationId;
     private final Collection<? extends GrantedAuthority> authorities;
 
     public UserPrincipal(User user) {
         this.user = user;
         this.id = user.getId();
         this.email = user.getEmail();
+        this.organizationId = user.getOrganization() != null ? user.getOrganization().getId() : null;
         this.authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
     }
 

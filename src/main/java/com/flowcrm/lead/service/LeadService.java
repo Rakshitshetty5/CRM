@@ -3,6 +3,7 @@ package com.flowcrm.lead.service;
 import com.flowcrm.common.enums.LeadStatus;
 import com.flowcrm.lead.dto.CreateLeadRequest;
 import com.flowcrm.lead.dto.LeadActivityResponse;
+import com.flowcrm.lead.dto.LeadAssignmentRequest;
 import com.flowcrm.lead.dto.LeadResponse;
 import com.flowcrm.lead.dto.UpdateLeadRequest;
 import com.flowcrm.lead.dto.UpdateLeadStatusRequest;
@@ -19,4 +20,6 @@ public interface LeadService {
     LeadResponse updateLead(UUID leadId, UpdateLeadRequest request);
     LeadResponse updateLeadStatus(UUID leadId, UpdateLeadStatusRequest request);
     List<LeadActivityResponse> getLeadActivities(UUID leadId);
+    LeadResponse assignLead(UUID leadId, LeadAssignmentRequest request);
 }
+

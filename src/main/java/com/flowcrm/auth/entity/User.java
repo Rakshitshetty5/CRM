@@ -2,6 +2,7 @@ package com.flowcrm.auth.entity;
 
 import com.flowcrm.common.audit.BaseEntity;
 import com.flowcrm.common.enums.Role;
+import com.flowcrm.organization.entity.Organization;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -16,7 +17,8 @@ import java.util.UUID;
 @Table(
         name = "users",
         indexes = {
-                @Index(name = "idx_user_email", columnList = "email")
+                @Index(name = "idx_user_email", columnList = "email"),
+                @Index(name = "idx_user_organization", columnList = "organization_id")
         }
 )
 public class User extends BaseEntity {
@@ -44,4 +46,8 @@ public class User extends BaseEntity {
     @Column(nullable = false)
     @Builder.Default
     private boolean active = true;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id")
+    private Organization organization;
 }

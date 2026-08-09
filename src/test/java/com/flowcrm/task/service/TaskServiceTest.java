@@ -3,6 +3,7 @@ package com.flowcrm.task.service;
 import com.flowcrm.auth.entity.User;
 import com.flowcrm.auth.repository.UserRepository;
 import com.flowcrm.auth.security.UserPrincipal;
+import com.flowcrm.common.security.UserContext;
 import com.flowcrm.common.enums.ActivityType;
 import com.flowcrm.common.enums.LeadSource;
 import com.flowcrm.common.enums.LeadStatus;
@@ -14,6 +15,7 @@ import com.flowcrm.lead.entity.Lead;
 import com.flowcrm.lead.entity.LeadActivity;
 import com.flowcrm.lead.repository.LeadActivityRepository;
 import com.flowcrm.lead.repository.LeadRepository;
+import com.flowcrm.organization.entity.Organization;
 import com.flowcrm.task.dto.CreateTaskRequest;
 import com.flowcrm.task.dto.TaskResponse;
 import com.flowcrm.task.dto.UpdateTaskRequest;
@@ -61,6 +63,9 @@ class TaskServiceTest {
     @Mock
     private LeadActivityRepository leadActivityRepository;
 
+    @Mock
+    private UserContext userContext;
+
     @InjectMocks
     private TaskServiceImpl taskService;
 
@@ -68,9 +73,16 @@ class TaskServiceTest {
     private User assignedUser;
     private Lead testLead;
     private Task testTask;
+    private Organization testOrg;
 
     @BeforeEach
     void setUp() {
+        testOrg = Organization.builder()
+                .id(UUID.randomUUID())
+                .name("FlowCRM")
+                .slug("flowcrm")
+                .build();
+
         authUser = User.builder()
                 .id(UUID.randomUUID())
                 .firstName("Admin")
@@ -79,6 +91,7 @@ class TaskServiceTest {
                 .password("password")
                 .role(Role.ADMIN)
                 .active(true)
+                .organization(testOrg)
                 .build();
 
         assignedUser = User.builder()
@@ -89,6 +102,7 @@ class TaskServiceTest {
                 .password("password")
                 .role(Role.SALES_REP)
                 .active(true)
+                .organization(testOrg)
                 .build();
 
         testLead = Lead.builder()
@@ -99,6 +113,7 @@ class TaskServiceTest {
                 .status(LeadStatus.NEW)
                 .source(LeadSource.WEBSITE)
                 .assignedTo(authUser)
+                .organization(testOrg)
                 .build();
 
         testTask = Task.builder()
@@ -110,7 +125,10 @@ class TaskServiceTest {
                 .dueDate(LocalDateTime.now().plusDays(2))
                 .lead(testLead)
                 .assignedTo(assignedUser)
+                .organization(testOrg)
                 .build();
+
+        lenient().when(userContext.getUserId()).thenReturn(authUser.getId());
 
         UserPrincipal principal = new UserPrincipal(authUser);
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
@@ -126,8 +144,9 @@ class TaskServiceTest {
                 LocalDateTime.now().plusDays(2)
         );
 
-        when(leadRepository.findById(testLead.getId())).thenReturn(Optional.of(testLead));
-        when(userRepository.findById(assignedUser.getId())).thenReturn(Optional.of(assignedUser));
+        when(userRepository.findById(authUser.getId())).thenReturn(Optional.of(authUser));
+        when(leadRepository.findByIdAndOrganizationId(testLead.getId(), testOrg.getId())).thenReturn(Optional.of(testLead));
+        when(userRepository.findByIdAndOrganizationId(assignedUser.getId(), testOrg.getId())).thenReturn(Optional.of(assignedUser));
         when(taskRepository.save(any(Task.class))).thenReturn(testTask);
 
         TaskResponse response = taskService.createTask(request);
@@ -152,7 +171,8 @@ class TaskServiceTest {
                 LocalDateTime.now().plusDays(1)
         );
 
-        when(leadRepository.findById(unknownLeadId)).thenReturn(Optional.empty());
+        when(userRepository.findById(authUser.getId())).thenReturn(Optional.of(authUser));
+        when(leadRepository.findByIdAndOrganizationId(eq(unknownLeadId), any())).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> taskService.createTask(request));
         verify(taskRepository, never()).save(any());
@@ -167,8 +187,9 @@ class TaskServiceTest {
                 LocalDateTime.now().plusDays(1)
         );
 
-        when(leadRepository.findById(testLead.getId())).thenReturn(Optional.of(testLead));
-        when(userRepository.findById(unknownUserId)).thenReturn(Optional.empty());
+        when(userRepository.findById(authUser.getId())).thenReturn(Optional.of(authUser));
+        when(leadRepository.findByIdAndOrganizationId(testLead.getId(), testOrg.getId())).thenReturn(Optional.of(testLead));
+        when(userRepository.findByIdAndOrganizationId(eq(unknownUserId), any())).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> taskService.createTask(request));
         verify(taskRepository, never()).save(any());
@@ -180,6 +201,7 @@ class TaskServiceTest {
         Pageable pageable = PageRequest.of(0, 20);
         Page<Task> taskPage = new PageImpl<>(List.of(testTask), pageable, 1);
 
+        when(userRepository.findById(authUser.getId())).thenReturn(Optional.of(authUser));
         when(taskRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(taskPage);
 
         Page<TaskResponse> result = taskService.getTasks(TaskStatus.PENDING, TaskPriority.HIGH, assignedUser.getId(), testLead.getId(), pageable);
@@ -193,7 +215,8 @@ class TaskServiceTest {
     @DisplayName("Get Task By Id - Success")
     void getTaskById_Success() {
         UUID taskId = testTask.getId();
-        when(taskRepository.findById(taskId)).thenReturn(Optional.of(testTask));
+        when(userRepository.findById(authUser.getId())).thenReturn(Optional.of(authUser));
+        when(taskRepository.findByIdAndOrganizationId(taskId, testOrg.getId())).thenReturn(Optional.of(testTask));
 
         TaskResponse response = taskService.getTaskById(taskId);
 
@@ -206,7 +229,8 @@ class TaskServiceTest {
     @DisplayName("Get Task By Id - Not found throws ResourceNotFoundException")
     void getTaskById_NotFound() {
         UUID taskId = UUID.randomUUID();
-        when(taskRepository.findById(taskId)).thenReturn(Optional.empty());
+        when(userRepository.findById(authUser.getId())).thenReturn(Optional.of(authUser));
+        when(taskRepository.findByIdAndOrganizationId(eq(taskId), any())).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> taskService.getTaskById(taskId));
     }
@@ -221,8 +245,9 @@ class TaskServiceTest {
                 LocalDateTime.now().plusDays(3)
         );
 
-        when(taskRepository.findById(taskId)).thenReturn(Optional.of(testTask));
-        when(userRepository.findById(assignedUser.getId())).thenReturn(Optional.of(assignedUser));
+        when(userRepository.findById(authUser.getId())).thenReturn(Optional.of(authUser));
+        when(taskRepository.findByIdAndOrganizationId(taskId, testOrg.getId())).thenReturn(Optional.of(testTask));
+        when(userRepository.findByIdAndOrganizationId(assignedUser.getId(), testOrg.getId())).thenReturn(Optional.of(assignedUser));
         when(taskRepository.save(any(Task.class))).thenReturn(testTask);
 
         TaskResponse response = taskService.updateTask(taskId, request);
@@ -237,7 +262,8 @@ class TaskServiceTest {
         UUID taskId = testTask.getId();
         UpdateTaskStatusRequest request = new UpdateTaskStatusRequest(TaskStatus.IN_PROGRESS);
 
-        when(taskRepository.findById(taskId)).thenReturn(Optional.of(testTask));
+        when(userRepository.findById(authUser.getId())).thenReturn(Optional.of(authUser));
+        when(taskRepository.findByIdAndOrganizationId(taskId, testOrg.getId())).thenReturn(Optional.of(testTask));
         when(taskRepository.save(any(Task.class))).thenReturn(testTask);
 
         taskService.updateTaskStatus(taskId, request);
@@ -259,11 +285,12 @@ class TaskServiceTest {
                 .dueDate(LocalDateTime.now().plusDays(2))
                 .lead(testLead)
                 .assignedTo(assignedUser)
+                .organization(testOrg)
                 .build();
 
-        when(taskRepository.findById(taskId)).thenReturn(Optional.of(testTask));
-        when(taskRepository.save(any(Task.class))).thenReturn(completedTask);
         when(userRepository.findById(authUser.getId())).thenReturn(Optional.of(authUser));
+        when(taskRepository.findByIdAndOrganizationId(taskId, testOrg.getId())).thenReturn(Optional.of(testTask));
+        when(taskRepository.save(any(Task.class))).thenReturn(completedTask);
 
         taskService.updateTaskStatus(taskId, request);
 
@@ -275,5 +302,70 @@ class TaskServiceTest {
         assertTrue(savedActivity.getDescription().contains("Send pricing details"));
         assertEquals(authUser.getId(), savedActivity.getPerformedBy().getId());
         assertEquals(testLead.getId(), savedActivity.getLead().getId());
+    }
+
+    @Test
+    @DisplayName("Get Task By Id - Sales Rep Creator can access task assigned to another user")
+    void getTaskById_SalesRepCreator_Success() {
+        User salesRepCreator = User.builder()
+                .id(UUID.randomUUID())
+                .firstName("Creator")
+                .lastName("Rep")
+                .email("creator@flowcrm.com")
+                .role(Role.SALES_REP)
+                .active(true)
+                .organization(testOrg)
+                .build();
+
+        Task creatorTask = Task.builder()
+                .id(UUID.randomUUID())
+                .title("Task created by Sales Rep")
+                .status(TaskStatus.PENDING)
+                .priority(TaskPriority.MEDIUM)
+                .dueDate(LocalDateTime.now().plusDays(1))
+                .lead(testLead)
+                .assignedTo(assignedUser)
+                .organization(testOrg)
+                .build();
+        creatorTask.setCreatedBy(salesRepCreator.getId());
+
+        when(userContext.getUserId()).thenReturn(salesRepCreator.getId());
+        when(userRepository.findById(salesRepCreator.getId())).thenReturn(Optional.of(salesRepCreator));
+        when(taskRepository.findByIdAndOrganizationId(creatorTask.getId(), testOrg.getId())).thenReturn(Optional.of(creatorTask));
+
+        UserPrincipal principal = new UserPrincipal(salesRepCreator);
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        TaskResponse response = taskService.getTaskById(creatorTask.getId());
+
+        assertNotNull(response);
+        assertEquals(salesRepCreator.getId(), response.createdBy());
+    }
+
+    @Test
+    @DisplayName("Get Task By Id - Sales Rep Non-Creator and Non-Assignee is denied access")
+    void getTaskById_SalesRepUnrelated_Denied() {
+        User salesRepUnrelated = User.builder()
+                .id(UUID.randomUUID())
+                .firstName("Unrelated")
+                .lastName("Rep")
+                .email("unrelated@flowcrm.com")
+                .role(Role.SALES_REP)
+                .active(true)
+                .organization(testOrg)
+                .build();
+
+        testTask.setCreatedBy(authUser.getId()); // Created by Admin, assigned to assignedUser
+
+        when(userContext.getUserId()).thenReturn(salesRepUnrelated.getId());
+        when(userRepository.findById(salesRepUnrelated.getId())).thenReturn(Optional.of(salesRepUnrelated));
+        when(taskRepository.findByIdAndOrganizationId(testTask.getId(), testOrg.getId())).thenReturn(Optional.of(testTask));
+
+        UserPrincipal principal = new UserPrincipal(salesRepUnrelated);
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class, () -> taskService.getTaskById(testTask.getId()));
     }
 }

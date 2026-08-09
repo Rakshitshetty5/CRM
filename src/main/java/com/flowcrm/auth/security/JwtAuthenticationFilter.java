@@ -50,6 +50,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                     if (userDetails instanceof UserPrincipal userPrincipal) {
                         userContext.setUserId(userPrincipal.getId());
+                        userContext.setOrganizationId(userPrincipal.getOrganizationId());
                     }
                 }
             }

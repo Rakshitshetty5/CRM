@@ -3,6 +3,7 @@ package com.flowcrm.task.service;
 import com.flowcrm.auth.entity.User;
 import com.flowcrm.auth.repository.UserRepository;
 import com.flowcrm.common.enums.ActivityType;
+import com.flowcrm.common.enums.Role;
 import com.flowcrm.common.enums.TaskPriority;
 import com.flowcrm.common.enums.TaskStatus;
 import com.flowcrm.common.exception.ResourceNotFoundException;
@@ -22,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,11 +42,16 @@ public class TaskServiceImpl implements TaskService {
     @Override
     @Transactional
     public TaskResponse createTask(CreateTaskRequest request) {
-        Lead lead = leadRepository.findById(request.leadId())
+        User currentUser = getCurrentUser();
+        UUID organizationId = currentUser.getOrganization().getId();
+
+        Lead lead = leadRepository.findByIdAndOrganizationId(request.leadId(), organizationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Lead not found with id: " + request.leadId()));
 
-        User assignedUser = userRepository.findById(request.assignedTo())
+        User assignedUser = userRepository.findByIdAndOrganizationId(request.assignedTo(), organizationId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + request.assignedTo()));
+
+        validateTaskAssignee(assignedUser);
 
         Task task = Task.builder()
                 .title(request.title())
@@ -54,7 +61,10 @@ public class TaskServiceImpl implements TaskService {
                 .dueDate(request.dueDate())
                 .lead(lead)
                 .assignedTo(assignedUser)
+                .organization(currentUser.getOrganization())
                 .build();
+
+        task.setCreatedBy(currentUser.getId());
 
         Task savedTask = taskRepository.save(task);
         return mapToTaskResponse(savedTask);
@@ -63,26 +73,43 @@ public class TaskServiceImpl implements TaskService {
     @Override
     @Transactional(readOnly = true)
     public Page<TaskResponse> getTasks(TaskStatus status, TaskPriority priority, UUID assignedTo, UUID leadId, Pageable pageable) {
-        Specification<Task> spec = TaskSpecification.filterTasks(status, priority, assignedTo, leadId);
+        User currentUser = getCurrentUser();
+        UUID organizationId = currentUser.getOrganization().getId();
+        boolean isAdmin = currentUser.getRole() == Role.ADMIN;
+
+        Specification<Task> spec = TaskSpecification.filterTasks(organizationId, currentUser.getId(), isAdmin, status, priority, assignedTo, leadId);
         return taskRepository.findAll(spec, pageable).map(this::mapToTaskResponse);
     }
 
     @Override
     @Transactional(readOnly = true)
     public TaskResponse getTaskById(UUID taskId) {
-        Task task = taskRepository.findById(taskId)
+        User currentUser = getCurrentUser();
+        UUID organizationId = currentUser.getOrganization().getId();
+
+        Task task = taskRepository.findByIdAndOrganizationId(taskId, organizationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + taskId));
+
+        enforceTaskAccess(task);
+
         return mapToTaskResponse(task);
     }
 
     @Override
     @Transactional
     public TaskResponse updateTask(UUID taskId, UpdateTaskRequest request) {
-        Task task = taskRepository.findById(taskId)
+        User currentUser = getCurrentUser();
+        UUID organizationId = currentUser.getOrganization().getId();
+
+        Task task = taskRepository.findByIdAndOrganizationId(taskId, organizationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + taskId));
 
-        User assignedUser = userRepository.findById(request.assignedTo())
+        enforceTaskOwnership(task, currentUser);
+
+        User assignedUser = userRepository.findByIdAndOrganizationId(request.assignedTo(), organizationId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + request.assignedTo()));
+
+        validateTaskAssignee(assignedUser);
 
         task.setTitle(request.title());
         task.setDescription(request.description());
@@ -97,15 +124,18 @@ public class TaskServiceImpl implements TaskService {
     @Override
     @Transactional
     public TaskResponse updateTaskStatus(UUID taskId, UpdateTaskStatusRequest request) {
-        Task task = taskRepository.findById(taskId)
+        User currentUser = getCurrentUser();
+        UUID organizationId = currentUser.getOrganization().getId();
+
+        Task task = taskRepository.findByIdAndOrganizationId(taskId, organizationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + taskId));
+
+        enforceTaskOwnership(task, currentUser);
 
         task.setStatus(request.status());
         Task updatedTask = taskRepository.save(task);
 
         if (request.status() == TaskStatus.COMPLETED) {
-            User currentUser = getCurrentUser();
-
             LeadActivity activity = LeadActivity.builder()
                     .lead(updatedTask.getLead())
                     .type(ActivityType.TASK_COMPLETED)
@@ -117,6 +147,46 @@ public class TaskServiceImpl implements TaskService {
         }
 
         return mapToTaskResponse(updatedTask);
+    }
+
+    /**
+     * Validates that the target user is a valid task assignee:
+     * must be an active user with SALES_REP role.
+     */
+    private void validateTaskAssignee(User assignee) {
+        if (assignee.getRole() != Role.SALES_REP) {
+            throw new IllegalArgumentException("Task can only be assigned to a user with SALES_REP role");
+        }
+        if (!assignee.isActive()) {
+            throw new IllegalArgumentException("Cannot assign task to an inactive user");
+        }
+    }
+
+    /**
+     * Enforces that a SALES_REP can view a task if assignedTo OR createdBy == currentUser.
+     * ADMIN can access any task in their organization.
+     */
+    private void enforceTaskAccess(Task task) {
+        User currentUser = getCurrentUser();
+        if (currentUser.getRole() == Role.SALES_REP) {
+            boolean isAssignee = task.getAssignedTo() != null && task.getAssignedTo().getId().equals(currentUser.getId());
+            boolean isCreator = task.getCreatedBy() != null && task.getCreatedBy().equals(currentUser.getId());
+            if (!isAssignee && !isCreator) {
+                throw new AccessDeniedException("You do not have access to this task");
+            }
+        }
+    }
+
+    /**
+     * Enforces that a SALES_REP can only modify tasks assigned to them.
+     * ADMIN can modify any task.
+     */
+    private void enforceTaskOwnership(Task task, User currentUser) {
+        if (currentUser.getRole() == Role.SALES_REP) {
+            if (!task.getAssignedTo().getId().equals(currentUser.getId())) {
+                throw new AccessDeniedException("You do not have access to this task");
+            }
+        }
     }
 
     private User getCurrentUser() {
@@ -138,6 +208,7 @@ public class TaskServiceImpl implements TaskService {
                 task.getDueDate(),
                 task.getLead() != null ? task.getLead().getId() : null,
                 task.getAssignedTo() != null ? task.getAssignedTo().getId() : null,
+                task.getCreatedBy(),
                 task.getCreatedAt(),
                 task.getUpdatedAt()
         );

@@ -4,10 +4,12 @@ import com.flowcrm.auth.entity.User;
 import com.flowcrm.auth.repository.UserRepository;
 import com.flowcrm.common.enums.ActivityType;
 import com.flowcrm.common.enums.LeadStatus;
+import com.flowcrm.common.enums.Role;
 import com.flowcrm.common.exception.ResourceNotFoundException;
 import com.flowcrm.common.security.UserContext;
 import com.flowcrm.lead.dto.CreateLeadRequest;
 import com.flowcrm.lead.dto.LeadActivityResponse;
+import com.flowcrm.lead.dto.LeadAssignmentRequest;
 import com.flowcrm.lead.dto.LeadResponse;
 import com.flowcrm.lead.dto.UpdateLeadRequest;
 import com.flowcrm.lead.dto.UpdateLeadStatusRequest;
@@ -20,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +53,7 @@ public class LeadServiceImpl implements LeadService {
                 .source(request.source())
                 .notes(request.notes())
                 .assignedTo(currentUser)
+                .organization(currentUser.getOrganization())
                 .build();
 
         Lead savedLead = leadRepository.save(lead);
@@ -69,7 +73,15 @@ public class LeadServiceImpl implements LeadService {
     @Override
     @Transactional(readOnly = true)
     public Page<LeadResponse> getLeads(LeadStatus status, UUID assignedTo, String search, Pageable pageable) {
-        Specification<Lead> spec = LeadSpecification.filterLeads(status, assignedTo, search);
+        User currentUser = getCurrentUser();
+        UUID organizationId = currentUser.getOrganization().getId();
+
+        // SALES_REP: force assignedTo to their own ID, ignore any client-supplied value
+        if (currentUser.getRole() == Role.SALES_REP) {
+            assignedTo = currentUser.getId();
+        }
+
+        Specification<Lead> spec = LeadSpecification.filterLeads(organizationId, status, assignedTo, search);
         Page<Lead> leadsPage = leadRepository.findAll(spec, pageable);
         return leadsPage.map(this::mapToLeadResponse);
     }
@@ -77,16 +89,27 @@ public class LeadServiceImpl implements LeadService {
     @Override
     @Transactional(readOnly = true)
     public LeadResponse getLeadById(UUID leadId) {
-        Lead lead = leadRepository.findById(leadId)
+        User currentUser = getCurrentUser();
+        UUID organizationId = currentUser.getOrganization().getId();
+
+        Lead lead = leadRepository.findByIdAndOrganizationId(leadId, organizationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Lead not found with id: " + leadId));
+
+        enforceLeadAccess(lead);
+
         return mapToLeadResponse(lead);
     }
 
     @Override
     @Transactional
     public LeadResponse updateLead(UUID leadId, UpdateLeadRequest request) {
-        Lead lead = leadRepository.findById(leadId)
+        User currentUser = getCurrentUser();
+        UUID organizationId = currentUser.getOrganization().getId();
+
+        Lead lead = leadRepository.findByIdAndOrganizationId(leadId, organizationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Lead not found with id: " + leadId));
+
+        enforceLeadOwnership(lead, currentUser);
 
         lead.setFirstName(request.firstName());
         lead.setLastName(request.lastName());
@@ -102,7 +125,7 @@ public class LeadServiceImpl implements LeadService {
                 .lead(updatedLead)
                 .type(ActivityType.LEAD_UPDATED)
                 .description("Lead updated")
-                .performedBy(getCurrentUser())
+                .performedBy(currentUser)
                 .build();
 
         leadActivityRepository.save(activity);
@@ -113,8 +136,13 @@ public class LeadServiceImpl implements LeadService {
     @Override
     @Transactional
     public LeadResponse updateLeadStatus(UUID leadId, UpdateLeadStatusRequest request) {
-        Lead lead = leadRepository.findById(leadId)
+        User currentUser = getCurrentUser();
+        UUID organizationId = currentUser.getOrganization().getId();
+
+        Lead lead = leadRepository.findByIdAndOrganizationId(leadId, organizationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Lead not found with id: " + leadId));
+
+        enforceLeadOwnership(lead, currentUser);
 
         LeadStatus oldStatus = lead.getStatus();
         LeadStatus newStatus = request.status();
@@ -126,7 +154,7 @@ public class LeadServiceImpl implements LeadService {
                 .lead(updatedLead)
                 .type(ActivityType.STAGE_CHANGED)
                 .description("Status changed from " + oldStatus + " to " + newStatus)
-                .performedBy(getCurrentUser())
+                .performedBy(currentUser)
                 .build();
 
         leadActivityRepository.save(activity);
@@ -137,14 +165,83 @@ public class LeadServiceImpl implements LeadService {
     @Override
     @Transactional(readOnly = true)
     public List<LeadActivityResponse> getLeadActivities(UUID leadId) {
-        if (!leadRepository.existsById(leadId)) {
-            throw new ResourceNotFoundException("Lead not found with id: " + leadId);
-        }
+        User currentUser = getCurrentUser();
+        UUID organizationId = currentUser.getOrganization().getId();
+
+        Lead lead = leadRepository.findByIdAndOrganizationId(leadId, organizationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lead not found with id: " + leadId));
+
+        enforceLeadAccess(lead);
 
         List<LeadActivity> activities = leadActivityRepository.findByLeadIdOrderByCreatedAtDesc(leadId);
         return activities.stream()
                 .map(this::mapToLeadActivityResponse)
                 .toList();
+    }
+
+    @Override
+    @Transactional
+    public LeadResponse assignLead(UUID leadId, LeadAssignmentRequest request) {
+        User currentUser = getCurrentUser();
+        UUID organizationId = currentUser.getOrganization().getId();
+
+        // Only ADMIN can assign/reassign leads
+        if (currentUser.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("Only admins can assign leads");
+        }
+
+        Lead lead = leadRepository.findByIdAndOrganizationId(leadId, organizationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lead not found with id: " + leadId));
+
+        User assignee = userRepository.findByIdAndOrganizationId(request.assignedTo(), organizationId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + request.assignedTo()));
+
+        if (assignee.getRole() != Role.SALES_REP) {
+            throw new IllegalArgumentException("Lead can only be assigned to a user with SALES_REP role");
+        }
+
+        if (!assignee.isActive()) {
+            throw new IllegalArgumentException("Cannot assign lead to an inactive user");
+        }
+
+        lead.setAssignedTo(assignee);
+        Lead updatedLead = leadRepository.save(lead);
+
+        LeadActivity activity = LeadActivity.builder()
+                .lead(updatedLead)
+                .type(ActivityType.LEAD_ASSIGNED)
+                .description("Lead assigned to " + assignee.getFirstName() + " " + assignee.getLastName())
+                .performedBy(currentUser)
+                .build();
+
+        leadActivityRepository.save(activity);
+
+        return mapToLeadResponse(updatedLead);
+    }
+
+    /**
+     * Enforces that a SALES_REP can only access leads assigned to them.
+     * ADMIN can access any lead.
+     */
+    private void enforceLeadAccess(Lead lead) {
+        User currentUser = getCurrentUser();
+        if (currentUser.getRole() == Role.SALES_REP) {
+            if (!lead.getAssignedTo().getId().equals(currentUser.getId())) {
+                throw new AccessDeniedException("You do not have access to this lead");
+            }
+        }
+    }
+
+    /**
+     * Enforces that a SALES_REP can only modify leads assigned to them.
+     * ADMIN can modify any lead.
+     */
+    private void enforceLeadOwnership(Lead lead, User currentUser) {
+        if (currentUser.getRole() == Role.SALES_REP) {
+            if (!lead.getAssignedTo().getId().equals(currentUser.getId())) {
+                throw new AccessDeniedException("You do not have access to this lead");
+            }
+        }
     }
 
     private User getCurrentUser() {
