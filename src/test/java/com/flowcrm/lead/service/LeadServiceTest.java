@@ -250,4 +250,88 @@ class LeadServiceTest {
         assertEquals(ActivityType.LEAD_CREATED, response.get(0).type());
         assertEquals(authUser.getId(), response.get(0).performedBy());
     }
+
+    @Test
+    @DisplayName("Assign Lead - Sales Rep can reassign lead assigned to them")
+    void assignLead_SalesRepSuccess() {
+        User salesRepA = User.builder()
+                .id(UUID.randomUUID())
+                .firstName("RepA")
+                .lastName("User")
+                .email("repa@flowcrm.com")
+                .role(Role.SALES_REP)
+                .active(true)
+                .organization(testOrg)
+                .build();
+
+        User salesRepB = User.builder()
+                .id(UUID.randomUUID())
+                .firstName("RepB")
+                .lastName("User")
+                .email("repb@flowcrm.com")
+                .role(Role.SALES_REP)
+                .active(true)
+                .organization(testOrg)
+                .build();
+
+        Lead leadAssignedToA = Lead.builder()
+                .id(UUID.randomUUID())
+                .firstName("Test")
+                .lastName("Lead")
+                .status(LeadStatus.NEW)
+                .assignedTo(salesRepA)
+                .organization(testOrg)
+                .build();
+
+        when(userContext.getUserId()).thenReturn(salesRepA.getId());
+        when(userRepository.findById(salesRepA.getId())).thenReturn(Optional.of(salesRepA));
+        when(leadRepository.findByIdAndOrganizationId(leadAssignedToA.getId(), testOrg.getId())).thenReturn(Optional.of(leadAssignedToA));
+        when(userRepository.findByIdAndOrganizationId(salesRepB.getId(), testOrg.getId())).thenReturn(Optional.of(salesRepB));
+        when(leadRepository.save(any(Lead.class))).thenReturn(leadAssignedToA);
+
+        LeadResponse response = leadService.assignLead(leadAssignedToA.getId(), new com.flowcrm.lead.dto.LeadAssignmentRequest(salesRepB.getId()));
+
+        assertNotNull(response);
+        verify(leadActivityRepository).save(any(LeadActivity.class));
+    }
+
+    @Test
+    @DisplayName("Assign Lead - Sales Rep cannot reassign lead NOT assigned to them")
+    void assignLead_SalesRepDenied() {
+        User salesRepA = User.builder()
+                .id(UUID.randomUUID())
+                .firstName("RepA")
+                .lastName("User")
+                .email("repa@flowcrm.com")
+                .role(Role.SALES_REP)
+                .active(true)
+                .organization(testOrg)
+                .build();
+
+        User salesRepB = User.builder()
+                .id(UUID.randomUUID())
+                .firstName("RepB")
+                .lastName("User")
+                .email("repb@flowcrm.com")
+                .role(Role.SALES_REP)
+                .active(true)
+                .organization(testOrg)
+                .build();
+
+        Lead leadAssignedToB = Lead.builder()
+                .id(UUID.randomUUID())
+                .firstName("Test")
+                .lastName("Lead")
+                .status(LeadStatus.NEW)
+                .assignedTo(salesRepB)
+                .organization(testOrg)
+                .build();
+
+        when(userContext.getUserId()).thenReturn(salesRepA.getId());
+        when(userRepository.findById(salesRepA.getId())).thenReturn(Optional.of(salesRepA));
+        when(leadRepository.findByIdAndOrganizationId(leadAssignedToB.getId(), testOrg.getId())).thenReturn(Optional.of(leadAssignedToB));
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> leadService.assignLead(leadAssignedToB.getId(), new com.flowcrm.lead.dto.LeadAssignmentRequest(salesRepA.getId())));
+    }
 }

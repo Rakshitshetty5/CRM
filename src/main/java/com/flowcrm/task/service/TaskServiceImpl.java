@@ -53,6 +53,10 @@ public class TaskServiceImpl implements TaskService {
 
         validateTaskAssignee(assignedUser);
 
+        if (request.dueDate() != null && request.dueDate().isBefore(java.time.LocalDateTime.now())) {
+            throw new IllegalArgumentException("Due date must be in the future");
+        }
+
         Task task = Task.builder()
                 .title(request.title())
                 .description(request.description())

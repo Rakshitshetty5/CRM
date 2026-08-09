@@ -147,6 +147,10 @@ public class LeadServiceImpl implements LeadService {
         LeadStatus oldStatus = lead.getStatus();
         LeadStatus newStatus = request.status();
 
+        if (oldStatus == newStatus) {
+            return mapToLeadResponse(lead);
+        }
+
         lead.setStatus(newStatus);
         Lead updatedLead = leadRepository.save(lead);
 
@@ -185,13 +189,10 @@ public class LeadServiceImpl implements LeadService {
         User currentUser = getCurrentUser();
         UUID organizationId = currentUser.getOrganization().getId();
 
-        // Only ADMIN can assign/reassign leads
-        if (currentUser.getRole() != Role.ADMIN) {
-            throw new AccessDeniedException("Only admins can assign leads");
-        }
-
         Lead lead = leadRepository.findByIdAndOrganizationId(leadId, organizationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Lead not found with id: " + leadId));
+
+        enforceLeadOwnership(lead, currentUser);
 
         User assignee = userRepository.findByIdAndOrganizationId(request.assignedTo(), organizationId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + request.assignedTo()));
@@ -202,6 +203,10 @@ public class LeadServiceImpl implements LeadService {
 
         if (!assignee.isActive()) {
             throw new IllegalArgumentException("Cannot assign lead to an inactive user");
+        }
+
+        if (lead.getAssignedTo() != null && lead.getAssignedTo().getId().equals(assignee.getId())) {
+            return mapToLeadResponse(lead);
         }
 
         lead.setAssignedTo(assignee);
