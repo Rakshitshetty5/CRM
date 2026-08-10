@@ -7,6 +7,11 @@ import com.flowcrm.common.enums.LeadStatus;
 import com.flowcrm.common.enums.Role;
 import com.flowcrm.common.exception.ResourceNotFoundException;
 import com.flowcrm.common.security.UserContext;
+import com.flowcrm.common.event.LeadAssignedEvent;
+import com.flowcrm.common.event.LeadCreatedEvent;
+import com.flowcrm.common.event.LeadStatusChangedEvent;
+import com.flowcrm.common.event.LeadUpdatedEvent;
+import com.flowcrm.outbox.OutboxEventPublisher;
 import com.flowcrm.lead.dto.CreateLeadRequest;
 import com.flowcrm.lead.dto.LeadActivityResponse;
 import com.flowcrm.lead.dto.LeadAssignmentRequest;
@@ -37,6 +42,7 @@ public class LeadServiceImpl implements LeadService {
     private final LeadActivityRepository leadActivityRepository;
     private final UserRepository userRepository;
     private final UserContext userContext;
+    private final OutboxEventPublisher outboxEventPublisher;
 
     @Override
     @Transactional
@@ -66,6 +72,12 @@ public class LeadServiceImpl implements LeadService {
                 .build();
 
         leadActivityRepository.save(activity);
+
+        outboxEventPublisher.publish(new LeadCreatedEvent(
+                savedLead.getOrganization().getId(),
+                savedLead.getId(),
+                savedLead.getAssignedTo() != null ? savedLead.getAssignedTo().getId() : null
+        ));
 
         return mapToLeadResponse(savedLead);
     }
@@ -130,6 +142,11 @@ public class LeadServiceImpl implements LeadService {
 
         leadActivityRepository.save(activity);
 
+        outboxEventPublisher.publish(new LeadUpdatedEvent(
+                updatedLead.getOrganization().getId(),
+                updatedLead.getId()
+        ));
+
         return mapToLeadResponse(updatedLead);
     }
 
@@ -162,6 +179,13 @@ public class LeadServiceImpl implements LeadService {
                 .build();
 
         leadActivityRepository.save(activity);
+
+        outboxEventPublisher.publish(new LeadStatusChangedEvent(
+                updatedLead.getOrganization().getId(),
+                updatedLead.getId(),
+                oldStatus,
+                newStatus
+        ));
 
         return mapToLeadResponse(updatedLead);
     }
@@ -220,6 +244,12 @@ public class LeadServiceImpl implements LeadService {
                 .build();
 
         leadActivityRepository.save(activity);
+
+        outboxEventPublisher.publish(new LeadAssignedEvent(
+                updatedLead.getOrganization().getId(),
+                updatedLead.getId(),
+                assignee.getId()
+        ));
 
         return mapToLeadResponse(updatedLead);
     }

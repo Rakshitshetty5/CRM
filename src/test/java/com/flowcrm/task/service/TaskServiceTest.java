@@ -22,6 +22,7 @@ import com.flowcrm.task.dto.UpdateTaskRequest;
 import com.flowcrm.task.dto.UpdateTaskStatusRequest;
 import com.flowcrm.task.entity.Task;
 import com.flowcrm.task.repository.TaskRepository;
+import com.flowcrm.outbox.OutboxEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -65,6 +66,9 @@ class TaskServiceTest {
 
     @Mock
     private UserContext userContext;
+
+    @Mock
+    private OutboxEventPublisher outboxEventPublisher;
 
     @InjectMocks
     private TaskServiceImpl taskService;

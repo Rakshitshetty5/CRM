@@ -49,4 +49,7 @@ public class OutboxEvent {
     private LocalDateTime createdAt;
 
     private LocalDateTime publishedAt;
+
+    @Column(columnDefinition = "TEXT")
+    private String errorMessage;
 }

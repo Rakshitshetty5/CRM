@@ -8,6 +8,10 @@ import com.flowcrm.common.enums.TaskPriority;
 import com.flowcrm.common.enums.TaskStatus;
 import com.flowcrm.common.exception.ResourceNotFoundException;
 import com.flowcrm.common.security.UserContext;
+import com.flowcrm.common.event.TaskAssignedEvent;
+import com.flowcrm.common.event.TaskCreatedEvent;
+import com.flowcrm.common.event.TaskStatusChangedEvent;
+import com.flowcrm.outbox.OutboxEventPublisher;
 import com.flowcrm.lead.entity.Lead;
 import com.flowcrm.lead.entity.LeadActivity;
 import com.flowcrm.lead.repository.LeadActivityRepository;
@@ -38,6 +42,7 @@ public class TaskServiceImpl implements TaskService {
     private final UserRepository userRepository;
     private final LeadActivityRepository leadActivityRepository;
     private final UserContext userContext;
+    private final OutboxEventPublisher outboxEventPublisher;
 
     @Override
     @Transactional
@@ -71,6 +76,14 @@ public class TaskServiceImpl implements TaskService {
         task.setCreatedBy(currentUser.getId());
 
         Task savedTask = taskRepository.save(task);
+
+        outboxEventPublisher.publish(new TaskCreatedEvent(
+                savedTask.getOrganization().getId(),
+                savedTask.getId(),
+                savedTask.getLead() != null ? savedTask.getLead().getId() : null,
+                savedTask.getAssignedTo() != null ? savedTask.getAssignedTo().getId() : null
+        ));
+
         return mapToTaskResponse(savedTask);
     }
 
@@ -115,6 +128,9 @@ public class TaskServiceImpl implements TaskService {
 
         validateTaskAssignee(assignedUser);
 
+        User oldAssignee = task.getAssignedTo();
+        UUID oldAssigneeId = oldAssignee != null ? oldAssignee.getId() : null;
+
         task.setTitle(request.title());
         task.setDescription(request.description());
         task.setPriority(request.priority());
@@ -122,6 +138,15 @@ public class TaskServiceImpl implements TaskService {
         task.setAssignedTo(assignedUser);
 
         Task updatedTask = taskRepository.save(task);
+
+        if (!assignedUser.getId().equals(oldAssigneeId)) {
+            outboxEventPublisher.publish(new TaskAssignedEvent(
+                    updatedTask.getOrganization().getId(),
+                    updatedTask.getId(),
+                    assignedUser.getId()
+            ));
+        }
+
         return mapToTaskResponse(updatedTask);
     }
 
@@ -136,10 +161,17 @@ public class TaskServiceImpl implements TaskService {
 
         enforceTaskOwnership(task, currentUser);
 
-        task.setStatus(request.status());
+        TaskStatus oldStatus = task.getStatus();
+        TaskStatus newStatus = request.status();
+
+        if (oldStatus == newStatus) {
+            return mapToTaskResponse(task);
+        }
+
+        task.setStatus(newStatus);
         Task updatedTask = taskRepository.save(task);
 
-        if (request.status() == TaskStatus.COMPLETED) {
+        if (newStatus == TaskStatus.COMPLETED) {
             LeadActivity activity = LeadActivity.builder()
                     .lead(updatedTask.getLead())
                     .type(ActivityType.TASK_COMPLETED)
@@ -149,6 +181,13 @@ public class TaskServiceImpl implements TaskService {
 
             leadActivityRepository.save(activity);
         }
+
+        outboxEventPublisher.publish(new TaskStatusChangedEvent(
+                updatedTask.getOrganization().getId(),
+                updatedTask.getId(),
+                oldStatus,
+                newStatus
+        ));
 
         return mapToTaskResponse(updatedTask);
     }

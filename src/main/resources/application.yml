@@ -2,8 +2,8 @@ spring:
   application:
     name: flowcrm
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/flowcrm}
-    username: ${DB_USER:flowcrm_user}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/flowcrm-db}
+    username: ${DB_USER:rakshit}
     password: ${DB_PASS:password}
   data:
     redis:
@@ -17,6 +17,27 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKERS:localhost:29092}
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+        retries: 3
+        spring.json.add.type.headers: false
+    consumer:
+      group-id: flowcrm-monolith
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.flowcrm.*"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: java.util.LinkedHashMap
 
 jwt:
   secret-key: dont-use-in-prod-a9asd7fulasjdfaklsdfu98q3uhjdiosh897as9d8f7ua9osufdjilasdjf
@@ -29,3 +50,14 @@ app:
     use-case:
       api-key:
         requests-per-minute: 2
+  kafka:
+    topics:
+      lead: leads.events
+      task: tasks.events
+
+outbox:
+  polling:
+    fixed-delay: 5000
+  retry:
+    max-attempts: 3
+

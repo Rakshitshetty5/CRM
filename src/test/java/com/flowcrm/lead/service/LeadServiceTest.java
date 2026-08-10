@@ -19,6 +19,7 @@ import com.flowcrm.lead.entity.LeadActivity;
 import com.flowcrm.lead.repository.LeadActivityRepository;
 import com.flowcrm.lead.repository.LeadRepository;
 import com.flowcrm.organization.entity.Organization;
+import com.flowcrm.outbox.OutboxEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -57,6 +58,9 @@ class LeadServiceTest {
 
     @Mock
     private UserContext userContext;
+
+    @Mock
+    private OutboxEventPublisher outboxEventPublisher;
 
     @InjectMocks
     private LeadServiceImpl leadService;
