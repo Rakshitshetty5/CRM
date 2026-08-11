@@ -4,12 +4,12 @@ import com.flowcrm.kafka.dto.EventEnvelope;
 import com.flowcrm.kafka.service.EventProcessingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.annotation.BackOff;
 import org.springframework.kafka.annotation.DltHandler;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.kafka.retrytopic.DltStrategy;
 import org.springframework.kafka.retrytopic.TopicSuffixingStrategy;
-import org.springframework.retry.annotation.Backoff;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -21,7 +21,7 @@ public class TaskEventConsumer {
 
     @RetryableTopic(
             attempts = "${kafka.consumer.retry.max-attempts:3}",
-            backoff = @Backoff(delay = 1000),
+            backOff = @BackOff(delay = 1000),
             topicSuffixingStrategy = TopicSuffixingStrategy.SUFFIX_WITH_INDEX_VALUE,
             dltStrategy = DltStrategy.FAIL_ON_ERROR,
             dltTopicSuffix = ".DLT"
