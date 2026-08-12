@@ -11,6 +11,7 @@ import com.flowcrm.dashboard.dto.DashboardSummaryResponse;
 import com.flowcrm.lead.repository.LeadRepository;
 import com.flowcrm.task.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +31,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final UserContext userContext;
 
     @Override
+    @Cacheable(value = "dashboard", keyGenerator = "dashboardCacheKeyGenerator")
     @Transactional(readOnly = true)
     public DashboardSummaryResponse getDashboardSummary() {
         User currentUser = getAuthenticatedUser();

@@ -24,6 +24,7 @@ import com.flowcrm.task.entity.Task;
 import com.flowcrm.task.repository.TaskRepository;
 import com.flowcrm.task.repository.TaskSpecification;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -46,6 +47,7 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "dashboard", allEntries = true)
     public TaskResponse createTask(CreateTaskRequest request) {
         User currentUser = getCurrentUser();
         UUID organizationId = currentUser.getOrganization().getId();
@@ -114,6 +116,7 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "dashboard", allEntries = true)
     public TaskResponse updateTask(UUID taskId, UpdateTaskRequest request) {
         User currentUser = getCurrentUser();
         UUID organizationId = currentUser.getOrganization().getId();
@@ -152,6 +155,7 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "dashboard", allEntries = true)
     public TaskResponse updateTaskStatus(UUID taskId, UpdateTaskStatusRequest request) {
         User currentUser = getCurrentUser();
         UUID organizationId = currentUser.getOrganization().getId();

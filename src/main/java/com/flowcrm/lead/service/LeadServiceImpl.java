@@ -24,6 +24,7 @@ import com.flowcrm.lead.repository.LeadActivityRepository;
 import com.flowcrm.lead.repository.LeadRepository;
 import com.flowcrm.lead.repository.LeadSpecification;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -46,6 +47,7 @@ public class LeadServiceImpl implements LeadService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "dashboard", allEntries = true)
     public LeadResponse createLead(CreateLeadRequest request) {
         User currentUser = getCurrentUser();
 
@@ -114,6 +116,7 @@ public class LeadServiceImpl implements LeadService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "dashboard", allEntries = true)
     public LeadResponse updateLead(UUID leadId, UpdateLeadRequest request) {
         User currentUser = getCurrentUser();
         UUID organizationId = currentUser.getOrganization().getId();
@@ -152,6 +155,7 @@ public class LeadServiceImpl implements LeadService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "dashboard", allEntries = true)
     public LeadResponse updateLeadStatus(UUID leadId, UpdateLeadStatusRequest request) {
         User currentUser = getCurrentUser();
         UUID organizationId = currentUser.getOrganization().getId();
@@ -209,6 +213,7 @@ public class LeadServiceImpl implements LeadService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "dashboard", allEntries = true)
     public LeadResponse assignLead(UUID leadId, LeadAssignmentRequest request) {
         User currentUser = getCurrentUser();
         UUID organizationId = currentUser.getOrganization().getId();

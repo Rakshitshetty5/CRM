@@ -45,6 +45,9 @@ jwt:
   refresh-token-expiration-ms: 604800000 # 7 days in ms
 
 app:
+  cache:
+    dashboard:
+      ttl: ${DASHBOARD_CACHE_TTL:60s}
   follow-up:
     polling:
       fixed-delay: 60000
