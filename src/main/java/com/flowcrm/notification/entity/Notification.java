@@ -48,6 +48,10 @@ public class Notification {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "metadata", columnDefinition = "TEXT")
+    @Convert(converter = JsonMapConverter.class)
+    private java.util.Map<String, Object> metadata;
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {

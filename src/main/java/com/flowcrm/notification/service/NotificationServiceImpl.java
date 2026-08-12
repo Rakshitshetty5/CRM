@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -25,6 +26,12 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public NotificationResponse createNotification(UUID userId, UUID organizationId, String type, String title, String message, UUID referenceId) {
+        return createNotification(userId, organizationId, type, title, message, referenceId, null);
+    }
+
+    @Override
+    @Transactional
+    public NotificationResponse createNotification(UUID userId, UUID organizationId, String type, String title, String message, UUID referenceId, Map<String, Object> metadata) {
         Notification notification = Notification.builder()
                 .userId(userId)
                 .organizationId(organizationId)
@@ -33,6 +40,7 @@ public class NotificationServiceImpl implements NotificationService {
                 .message(message)
                 .referenceId(referenceId)
                 .isRead(false)
+                .metadata(metadata)
                 .build();
 
         Notification saved = notificationRepository.save(notification);
@@ -86,7 +94,8 @@ public class NotificationServiceImpl implements NotificationService {
                 notification.getMessage(),
                 notification.getReferenceId(),
                 notification.isRead(),
-                notification.getCreatedAt()
+                notification.getCreatedAt(),
+                notification.getMetadata()
         );
     }
 }

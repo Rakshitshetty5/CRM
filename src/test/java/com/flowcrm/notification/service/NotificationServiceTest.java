@@ -70,6 +70,40 @@ class NotificationServiceTest {
         assertEquals(orgId, response.organizationId());
         assertEquals("LEAD_ASSIGNED", response.type());
         assertFalse(response.isRead());
+        assertNull(response.metadata());
+        verify(notificationRepository, times(1)).save(any(Notification.class));
+    }
+
+    @Test
+    void testCreateNotificationWithMetadata() {
+        UUID userId = UUID.randomUUID();
+        UUID orgId = UUID.randomUUID();
+        UUID refId = UUID.randomUUID();
+        java.util.Map<String, Object> metadata = java.util.Map.of("leadId", refId.toString(), "leadName", "Acme Corp");
+
+        Notification saved = Notification.builder()
+                .id(UUID.randomUUID())
+                .userId(userId)
+                .organizationId(orgId)
+                .type("LEAD_ASSIGNED")
+                .title("New Lead Assigned")
+                .message("A new lead has been assigned to you.")
+                .referenceId(refId)
+                .isRead(false)
+                .metadata(metadata)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        when(notificationRepository.save(any(Notification.class))).thenReturn(saved);
+
+        NotificationResponse response = notificationService.createNotification(
+                userId, orgId, "LEAD_ASSIGNED", "New Lead Assigned", "A new lead has been assigned to you.", refId, metadata
+        );
+
+        assertNotNull(response);
+        assertEquals(saved.getId(), response.id());
+        assertNotNull(response.metadata());
+        assertEquals("Acme Corp", response.metadata().get("leadName"));
         verify(notificationRepository, times(1)).save(any(Notification.class));
     }
 

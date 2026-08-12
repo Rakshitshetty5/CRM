@@ -10,6 +10,7 @@ import com.flowcrm.common.event.LeadStatusChangedEvent;
 import com.flowcrm.common.event.LeadUpdatedEvent;
 import com.flowcrm.common.event.TaskAssignedEvent;
 import com.flowcrm.common.event.TaskCreatedEvent;
+import com.flowcrm.common.event.TaskFollowUpDue;
 import com.flowcrm.common.event.TaskStatusChangedEvent;
 import com.flowcrm.outbox.entity.OutboxEvent;
 import com.flowcrm.outbox.repository.OutboxEventRepository;
@@ -63,7 +64,7 @@ public class OutboxEventPublisher {
                 || event instanceof LeadAssignedEvent || event instanceof LeadStatusChangedEvent) {
             return "LEAD";
         } else if (event instanceof TaskCreatedEvent || event instanceof TaskAssignedEvent
-                || event instanceof TaskStatusChangedEvent) {
+                || event instanceof TaskStatusChangedEvent || event instanceof TaskFollowUpDue) {
             return "TASK";
         }
         return "UNKNOWN";

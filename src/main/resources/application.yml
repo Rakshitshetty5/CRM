@@ -45,6 +45,9 @@ jwt:
   refresh-token-expiration-ms: 604800000 # 7 days in ms
 
 app:
+  follow-up:
+    polling:
+      fixed-delay: 60000
   rate-limit:
     method: fixed
     use-case:

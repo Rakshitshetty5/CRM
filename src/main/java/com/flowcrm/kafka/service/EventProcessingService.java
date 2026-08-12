@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.flowcrm.kafka.dto.EventEnvelope;
 import com.flowcrm.kafka.entity.ProcessedEvent;
 import com.flowcrm.kafka.repository.ProcessedEventRepository;
+import com.flowcrm.notification.service.NotificationMetadataEnricher;
 import com.flowcrm.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -23,6 +25,7 @@ public class EventProcessingService {
     private final ProcessedEventRepository processedEventRepository;
     private final ObjectMapper objectMapper;
     private final NotificationService notificationService;
+    private final NotificationMetadataEnricher notificationMetadataEnricher;
 
     @Transactional
     public boolean processEvent(EventEnvelope envelope) {
@@ -38,9 +41,11 @@ public class EventProcessingService {
             return false;
         }
 
-        // 2. Perform event-specific processing (e.g. Notification creation for LeadAssigned)
+        // 2. Perform event-specific processing (e.g. Notification creation for LeadAssigned, TaskFollowUpDue)
         if ("LeadAssigned".equalsIgnoreCase(envelope.eventType())) {
             processLeadAssignedEvent(envelope);
+        } else if ("TaskFollowUpDue".equalsIgnoreCase(envelope.eventType())) {
+            processTaskFollowUpDueEvent(envelope);
         }
 
         // 3. Persist processed event ID after side effects succeed
@@ -78,13 +83,15 @@ public class EventProcessingService {
                     ? UUID.fromString(root.get("assignedTo").asText()) : null;
 
             if (assignedTo != null && organizationId != null) {
+                Map<String, Object> metadata = notificationMetadataEnricher.buildLeadAssignedMetadata(leadId, root);
                 notificationService.createNotification(
                         assignedTo,
                         organizationId,
                         "LEAD_ASSIGNED",
                         "New Lead Assigned",
                         "A new lead has been assigned to you.",
-                        leadId
+                        leadId,
+                        metadata
                 );
             }
         } catch (Exception e) {
@@ -93,6 +100,43 @@ public class EventProcessingService {
                 throw re;
             }
             throw new RuntimeException("Failed to process LeadAssigned notification", e);
+        }
+    }
+
+    private void processTaskFollowUpDueEvent(EventEnvelope envelope) {
+        if (envelope.payload() == null || envelope.payload().isBlank()) {
+            return;
+        }
+        try {
+            JsonNode root = objectMapper.readTree(envelope.payload());
+            UUID organizationId = root.has("organizationId") && !root.get("organizationId").isNull()
+                    ? UUID.fromString(root.get("organizationId").asText()) : null;
+            UUID taskId = root.has("taskId") && !root.get("taskId").isNull()
+                    ? UUID.fromString(root.get("taskId").asText())
+                    : (root.has("entityId") && !root.get("entityId").isNull()
+                        ? UUID.fromString(root.get("entityId").asText())
+                        : envelope.aggregateId());
+            UUID assignedTo = root.has("assignedTo") && !root.get("assignedTo").isNull()
+                    ? UUID.fromString(root.get("assignedTo").asText()) : null;
+
+            if (assignedTo != null && organizationId != null) {
+                Map<String, Object> metadata = notificationMetadataEnricher.buildTaskFollowUpDueMetadata(taskId, root);
+                notificationService.createNotification(
+                        assignedTo,
+                        organizationId,
+                        "TASK_FOLLOW_UP_DUE",
+                        "Task Follow-up Due",
+                        "Your follow-up task is due.",
+                        taskId,
+                        metadata
+                );
+            }
+        } catch (Exception e) {
+            log.error("Failed to process TaskFollowUpDue event for notification: eventId={}", envelope.id(), e);
+            if (e instanceof RuntimeException re) {
+                throw re;
+            }
+            throw new RuntimeException("Failed to process TaskFollowUpDue notification", e);
         }
     }
 

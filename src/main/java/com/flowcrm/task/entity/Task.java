@@ -62,4 +62,8 @@ public class Task extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "organization_id")
     private Organization organization;
+
+    @Builder.Default
+    @Column(name = "reminder_sent", nullable = false)
+    private boolean reminderSent = false;
 }

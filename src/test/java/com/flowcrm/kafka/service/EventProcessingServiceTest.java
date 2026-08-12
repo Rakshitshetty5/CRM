@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.flowcrm.kafka.dto.EventEnvelope;
 import com.flowcrm.kafka.entity.ProcessedEvent;
 import com.flowcrm.kafka.repository.ProcessedEventRepository;
+import com.flowcrm.notification.service.NotificationMetadataEnricher;
 import com.flowcrm.notification.service.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -27,13 +29,16 @@ class EventProcessingServiceTest {
     @Mock
     private NotificationService notificationService;
 
+    @Mock
+    private NotificationMetadataEnricher notificationMetadataEnricher;
+
     private ObjectMapper objectMapper;
     private EventProcessingService eventProcessingService;
 
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
-        eventProcessingService = new EventProcessingService(processedEventRepository, objectMapper, notificationService);
+        eventProcessingService = new EventProcessingService(processedEventRepository, objectMapper, notificationService, notificationMetadataEnricher);
     }
 
     @Test
@@ -68,8 +73,10 @@ class EventProcessingServiceTest {
         String payload = String.format("{\"organizationId\":\"%s\",\"leadId\":\"%s\",\"assignedTo\":\"%s\"}", orgId, leadId, assignedTo);
 
         EventEnvelope envelope = new EventEnvelope(eventId, "LeadAssigned", "LEAD", leadId, payload);
+        Map<String, Object> mockMetadata = Map.of("leadId", leadId.toString(), "stage", "NEW");
 
         when(processedEventRepository.existsById(eventId)).thenReturn(false);
+        when(notificationMetadataEnricher.buildLeadAssignedMetadata(eq(leadId), any())).thenReturn(mockMetadata);
 
         boolean processed = eventProcessingService.processEvent(envelope);
 
@@ -80,7 +87,8 @@ class EventProcessingServiceTest {
                 eq("LEAD_ASSIGNED"),
                 eq("New Lead Assigned"),
                 eq("A new lead has been assigned to you."),
-                eq(leadId)
+                eq(leadId),
+                eq(mockMetadata)
         );
         verify(processedEventRepository, times(1)).saveAndFlush(any());
     }
@@ -96,7 +104,7 @@ class EventProcessingServiceTest {
         EventEnvelope envelope = new EventEnvelope(eventId, "LeadAssigned", "LEAD", leadId, payload);
 
         when(processedEventRepository.existsById(eventId)).thenReturn(false);
-        when(notificationService.createNotification(any(), any(), any(), any(), any(), any()))
+        when(notificationService.createNotification(any(), any(), any(), any(), any(), any(), any()))
                 .thenThrow(new RuntimeException("Database error"));
 
         assertThrows(RuntimeException.class, () -> eventProcessingService.processEvent(envelope));
@@ -118,6 +126,54 @@ class EventProcessingServiceTest {
         verify(processedEventRepository, times(1)).existsById(eventId);
         verifyNoInteractions(notificationService);
         verify(processedEventRepository, never()).save(any());
+        verify(processedEventRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void testProcessTaskFollowUpDueEventCreatesNotification() {
+        UUID eventId = UUID.randomUUID();
+        UUID orgId = UUID.randomUUID();
+        UUID taskId = UUID.randomUUID();
+        UUID assignedTo = UUID.randomUUID();
+        String payload = String.format("{\"organizationId\":\"%s\",\"taskId\":\"%s\",\"assignedTo\":\"%s\"}", orgId, taskId, assignedTo);
+
+        EventEnvelope envelope = new EventEnvelope(eventId, "TaskFollowUpDue", "TASK", taskId, payload);
+        Map<String, Object> mockMetadata = Map.of("taskId", taskId.toString(), "taskTitle", "Test Task");
+
+        when(processedEventRepository.existsById(eventId)).thenReturn(false);
+        when(notificationMetadataEnricher.buildTaskFollowUpDueMetadata(eq(taskId), any())).thenReturn(mockMetadata);
+
+        boolean processed = eventProcessingService.processEvent(envelope);
+
+        assertTrue(processed);
+        verify(notificationService, times(1)).createNotification(
+                eq(assignedTo),
+                eq(orgId),
+                eq("TASK_FOLLOW_UP_DUE"),
+                eq("Task Follow-up Due"),
+                eq("Your follow-up task is due."),
+                eq(taskId),
+                eq(mockMetadata)
+        );
+        verify(processedEventRepository, times(1)).saveAndFlush(any());
+    }
+
+    @Test
+    void testProcessTaskFollowUpDueEventNotificationFailurePropagatesException() {
+        UUID eventId = UUID.randomUUID();
+        UUID orgId = UUID.randomUUID();
+        UUID taskId = UUID.randomUUID();
+        UUID assignedTo = UUID.randomUUID();
+        String payload = String.format("{\"organizationId\":\"%s\",\"taskId\":\"%s\",\"assignedTo\":\"%s\"}", orgId, taskId, assignedTo);
+
+        EventEnvelope envelope = new EventEnvelope(eventId, "TaskFollowUpDue", "TASK", taskId, payload);
+
+        when(processedEventRepository.existsById(eventId)).thenReturn(false);
+        when(notificationService.createNotification(any(), any(), any(), any(), any(), any(), any()))
+                .thenThrow(new RuntimeException("Notification service failure"));
+
+        assertThrows(RuntimeException.class, () -> eventProcessingService.processEvent(envelope));
+
         verify(processedEventRepository, never()).saveAndFlush(any());
     }
 

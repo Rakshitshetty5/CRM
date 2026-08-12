@@ -3,6 +3,7 @@ package com.flowcrm.outbox;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.flowcrm.common.enums.OutboxStatus;
 import com.flowcrm.common.event.LeadCreatedEvent;
+import com.flowcrm.common.event.TaskFollowUpDue;
 import com.flowcrm.outbox.entity.OutboxEvent;
 import com.flowcrm.outbox.repository.OutboxEventRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,5 +56,25 @@ class OutboxEventPublisherTest {
         ArgumentCaptor<OutboxEvent> captor = ArgumentCaptor.forClass(OutboxEvent.class);
         verify(outboxEventRepository, times(1)).save(captor.capture());
         assertEquals("LEAD", captor.getValue().getAggregateType());
+    }
+
+    @Test
+    void testPublishTaskFollowUpDueEvent() {
+        UUID orgId = UUID.randomUUID();
+        UUID taskId = UUID.randomUUID();
+        UUID assignedTo = UUID.randomUUID();
+
+        TaskFollowUpDue event = new TaskFollowUpDue(orgId, taskId, assignedTo);
+
+        when(outboxEventRepository.save(any(OutboxEvent.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OutboxEvent result = outboxEventPublisher.publish(event);
+
+        assertNotNull(result);
+        assertEquals("TASK", result.getAggregateType());
+        assertEquals(taskId, result.getAggregateId());
+        assertEquals("TaskFollowUpDue", result.getEventType());
+        assertEquals(OutboxStatus.PENDING, result.getStatus());
+        assertNotNull(result.getPayload());
     }
 }
