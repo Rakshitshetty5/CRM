@@ -52,10 +52,9 @@ app:
     polling:
       fixed-delay: 60000
   rate-limit:
-    method: fixed
-    use-case:
-      api-key:
-        requests-per-minute: 2
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    method: ${RATE_LIMIT_METHOD:sliding-lua}
+    requests-per-minute: ${RATE_LIMIT_REQUESTS_PER_MINUTE:60}
   kafka:
     topics:
       lead: leads.events

@@ -141,7 +141,7 @@ The Notification Module consumes Kafka events and sends email notifications asyn
 
 ## Rate Limiting
 
-- Bucket4j
+- Custom Rate Limiter
 
 ## API Documentation
 
@@ -370,7 +370,7 @@ Only one request succeeds.
 
 ## Rate Limiting
 
-Public APIs are protected using Bucket4j backed by Redis.
+Public APIs are protected using Custom Rate Limiter backed by Redis.
 
 Applied to
 
@@ -513,7 +513,7 @@ docker-compose up -d
 | Apache Kafka | Asynchronous event-driven communication |
 | Transactional Outbox | Reliable event publishing without dual-write problems |
 | JWT | Stateless authentication |
-| Bucket4j | Simple and effective API rate limiting |
+| Custom Rate Limiter | Simple and effective API rate limiting |
 | Redisson | Reliable Redis-based distributed locking |
 
 ---
