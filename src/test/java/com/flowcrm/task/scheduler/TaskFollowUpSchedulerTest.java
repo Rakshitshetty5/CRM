@@ -33,12 +33,18 @@ class TaskFollowUpSchedulerTest {
     @Mock
     private OutboxEventPublisher outboxEventPublisher;
 
+    @Mock
+    private com.flowcrm.common.lock.RedisDistributedLockService lockService;
+
     private TaskFollowUpScheduler scheduler;
 
     @BeforeEach
     void setUp() {
-        scheduler = new TaskFollowUpScheduler(taskRepository, outboxEventPublisher);
+        lenient().when(lockService.tryLock(any(), any(), any())).thenReturn(true);
+        scheduler = new TaskFollowUpScheduler(taskRepository, outboxEventPublisher, new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), lockService);
     }
+
+
 
     @Test
     void testCheckForDueTasksPublishesEventWhenTaskIsClaimed() {
@@ -118,4 +124,15 @@ class TaskFollowUpSchedulerTest {
         verify(taskRepository, times(1)).markReminderSent(taskId2);
         verify(outboxEventPublisher, times(1)).publish(any());
     }
+
+    @Test
+    void testLockNotAcquiredSkipsExecution() {
+        when(lockService.tryLock(any(), any(), any())).thenReturn(false);
+
+        scheduler.checkForDueTasks();
+
+        verifyNoInteractions(taskRepository);
+        verifyNoInteractions(outboxEventPublisher);
+    }
 }
+

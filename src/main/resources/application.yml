@@ -71,4 +71,21 @@ kafka:
     retry:
       max-attempts: 3
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+  health:
+    db:
+      enabled: true
+    redis:
+      enabled: true
+    defaults:
+      enabled: true
+
+
 

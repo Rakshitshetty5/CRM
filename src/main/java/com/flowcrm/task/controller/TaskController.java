@@ -7,6 +7,11 @@ import com.flowcrm.task.dto.TaskResponse;
 import com.flowcrm.task.dto.UpdateTaskRequest;
 import com.flowcrm.task.dto.UpdateTaskStatusRequest;
 import com.flowcrm.task.service.TaskService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -29,51 +34,87 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/tasks")
 @RequiredArgsConstructor
+@Tag(name = "Tasks", description = "Task management APIs")
 public class TaskController {
 
     private final TaskService taskService;
 
+    @Operation(summary = "Create task", description = "Creates a new task associated with a lead within the organization")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Task created successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid request payload"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "404", description = "Associated lead or assigned user not found")
+    })
     @PostMapping
     public ResponseEntity<TaskResponse> createTask(@Valid @RequestBody CreateTaskRequest request) {
         TaskResponse response = taskService.createTask(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @Operation(summary = "Get tasks", description = "Retrieves a paged, filtered list of tasks within the organization")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Tasks retrieved successfully"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     @GetMapping
     public ResponseEntity<Page<TaskResponse>> getTasks(
-            @RequestParam(required = false) TaskStatus status,
-            @RequestParam(required = false) TaskPriority priority,
-            @RequestParam(required = false) UUID assignedTo,
-            @RequestParam(required = false) UUID leadId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @Parameter(description = "Filter by task status") @RequestParam(required = false) TaskStatus status,
+            @Parameter(description = "Filter by task priority") @RequestParam(required = false) TaskPriority priority,
+            @Parameter(description = "Filter by assigned user ID") @RequestParam(required = false) UUID assignedTo,
+            @Parameter(description = "Filter by lead ID") @RequestParam(required = false) UUID leadId,
+            @Parameter(description = "Zero-based page index") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size
     ) {
         Pageable pageable = PageRequest.of(page, size);
         Page<TaskResponse> response = taskService.getTasks(status, priority, assignedTo, leadId, pageable);
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "Get task by ID", description = "Retrieves a task by ID within the organization")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Task retrieved successfully"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "404", description = "Task not found")
+    })
     @GetMapping("/{taskId}")
-    public ResponseEntity<TaskResponse> getTaskById(@PathVariable UUID taskId) {
+    public ResponseEntity<TaskResponse> getTaskById(@Parameter(description = "UUID of the task") @PathVariable UUID taskId) {
         TaskResponse response = taskService.getTaskById(taskId);
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "Update task", description = "Updates an existing task details")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Task updated successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid request payload"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "403", description = "Forbidden"),
+            @ApiResponse(responseCode = "404", description = "Task not found")
+    })
     @PutMapping("/{taskId}")
     public ResponseEntity<TaskResponse> updateTask(
-            @PathVariable UUID taskId,
+            @Parameter(description = "UUID of the task") @PathVariable UUID taskId,
             @Valid @RequestBody UpdateTaskRequest request
     ) {
         TaskResponse response = taskService.updateTask(taskId, request);
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "Update task status", description = "Updates the status of a task")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Task status updated successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid request payload"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "403", description = "Forbidden"),
+            @ApiResponse(responseCode = "404", description = "Task not found")
+    })
     @PatchMapping("/{taskId}/status")
     public ResponseEntity<TaskResponse> updateTaskStatus(
-            @PathVariable UUID taskId,
+            @Parameter(description = "UUID of the task") @PathVariable UUID taskId,
             @Valid @RequestBody UpdateTaskStatusRequest request
     ) {
         TaskResponse response = taskService.updateTaskStatus(taskId, request);
         return ResponseEntity.ok(response);
     }
 }
+

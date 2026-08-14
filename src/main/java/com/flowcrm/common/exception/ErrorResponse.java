@@ -10,9 +10,19 @@ public record ErrorResponse(
         int status,
         String message,
         LocalDateTime timestamp,
+        String path,
         Map<String, String> errors
 ) {
     public ErrorResponse(int status, String message, LocalDateTime timestamp) {
-        this(status, message, timestamp, null);
+        this(status, message, timestamp, null, null);
+    }
+
+    public ErrorResponse(int status, String message, LocalDateTime timestamp, String path) {
+        this(status, message, timestamp, path, null);
+    }
+
+    public ErrorResponse(int status, String message, LocalDateTime timestamp, Map<String, String> errors) {
+        this(status, message, timestamp, null, errors);
     }
 }
+

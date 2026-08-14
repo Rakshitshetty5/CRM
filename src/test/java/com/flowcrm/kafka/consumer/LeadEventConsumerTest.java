@@ -22,8 +22,9 @@ class LeadEventConsumerTest {
 
     @BeforeEach
     void setUp() {
-        leadEventConsumer = new LeadEventConsumer(eventProcessingService);
+        leadEventConsumer = new LeadEventConsumer(eventProcessingService, new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
     }
+
 
     @Test
     void testConsumeLeadEvent() {

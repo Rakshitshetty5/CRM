@@ -37,8 +37,9 @@ class NotificationServiceTest {
 
     @BeforeEach
     void setUp() {
-        notificationService = new NotificationServiceImpl(notificationRepository, userContext);
+        notificationService = new NotificationServiceImpl(notificationRepository, userContext, new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
     }
+
 
     @Test
     void testCreateNotification() {

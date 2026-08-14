@@ -17,6 +17,8 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
 
+import io.micrometer.core.instrument.MeterRegistry;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -26,12 +28,14 @@ public class EventProcessingService {
     private final ObjectMapper objectMapper;
     private final NotificationService notificationService;
     private final NotificationMetadataEnricher notificationMetadataEnricher;
+    private final MeterRegistry meterRegistry;
 
     @Transactional
     public boolean processEvent(EventEnvelope envelope) {
         UUID eventId = extractEventId(envelope);
         if (eventId == null) {
             log.warn("Received invalid or null event envelope/ID");
+            meterRegistry.counter("kafka.events.failed", "reason", "invalid_envelope").increment();
             return false;
         }
 
@@ -42,10 +46,15 @@ public class EventProcessingService {
         }
 
         // 2. Perform event-specific processing (e.g. Notification creation for LeadAssigned, TaskFollowUpDue)
-        if ("LeadAssigned".equalsIgnoreCase(envelope.eventType())) {
-            processLeadAssignedEvent(envelope);
-        } else if ("TaskFollowUpDue".equalsIgnoreCase(envelope.eventType())) {
-            processTaskFollowUpDueEvent(envelope);
+        try {
+            if ("LeadAssigned".equalsIgnoreCase(envelope.eventType())) {
+                processLeadAssignedEvent(envelope);
+            } else if ("TaskFollowUpDue".equalsIgnoreCase(envelope.eventType())) {
+                processTaskFollowUpDueEvent(envelope);
+            }
+        } catch (Exception e) {
+            meterRegistry.counter("kafka.events.failed", "eventType", envelope.eventType() != null ? envelope.eventType() : "unknown").increment();
+            throw e;
         }
 
         // 3. Persist processed event ID after side effects succeed
@@ -65,9 +74,11 @@ public class EventProcessingService {
 
         log.info("Successfully processed event: eventId={}, eventType={}, aggregateType={}, aggregateId={}, organizationId={}",
                 eventId, envelope.eventType(), envelope.aggregateType(), envelope.aggregateId(), organizationId);
+        meterRegistry.counter("kafka.events.processed", "eventType", envelope.eventType() != null ? envelope.eventType() : "unknown").increment();
 
         return true;
     }
+
 
     private void processLeadAssignedEvent(EventEnvelope envelope) {
         if (envelope.payload() == null || envelope.payload().isBlank()) {

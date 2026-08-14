@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Map;
 import java.util.UUID;
 
+import io.micrometer.core.instrument.MeterRegistry;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -22,6 +24,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UserContext userContext;
+    private final MeterRegistry meterRegistry;
 
     @Override
     @Transactional
@@ -44,11 +47,13 @@ public class NotificationServiceImpl implements NotificationService {
                 .build();
 
         Notification saved = notificationRepository.save(notification);
-        log.info("Created notification: id={}, userId={}, organizationId={}, type={}",
-                saved.getId(), userId, organizationId, type);
+        log.info("Created notification: id={}, userId={}, organizationId={}, type={}, referenceId={}",
+                saved.getId(), userId, organizationId, type, referenceId);
+        meterRegistry.counter("notifications.created", "type", type != null ? type : "unknown").increment();
 
         return mapToResponse(saved);
     }
+
 
     @Override
     @Transactional(readOnly = true)

@@ -38,8 +38,9 @@ class EventProcessingServiceTest {
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
-        eventProcessingService = new EventProcessingService(processedEventRepository, objectMapper, notificationService, notificationMetadataEnricher);
+        eventProcessingService = new EventProcessingService(processedEventRepository, objectMapper, notificationService, notificationMetadataEnricher, new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
     }
+
 
     @Test
     void testProcessNewEventSuccessfully() {

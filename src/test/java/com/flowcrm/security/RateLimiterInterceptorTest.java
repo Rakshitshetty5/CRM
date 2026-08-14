@@ -40,8 +40,9 @@ class RateLimiterInterceptorTest {
 
     @BeforeEach
     void setUp() {
-        interceptor = new RateLimiterInterceptor(rateLimitProperties, rateLimiter, userContext);
+        interceptor = new RateLimiterInterceptor(rateLimitProperties, rateLimiter, userContext, new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
     }
+
 
     @Test
     void testDisabledRateLimitingAllowsRequest() {

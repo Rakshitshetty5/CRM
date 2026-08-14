@@ -39,13 +39,17 @@ public class OutboxPoller {
                 Map<String, Object> messageEnvelope = createEnvelope(event);
 
                 kafkaTemplate.send(topic, event.getAggregateId().toString(), messageEnvelope).get();
+                log.info("Published outbox event to Kafka: eventId={}, eventType={}, aggregateType={}, aggregateId={}, topic={}",
+                        event.getId(), event.getEventType(), event.getAggregateType(), event.getAggregateId(), topic);
                 outboxResultHandler.handleEventPublished(event);
             } catch (Exception e) {
-                log.error("Failed to publish outbox event id: {}", event.getId(), e);
+                log.error("Failed to publish outbox event: eventId={}, eventType={}, aggregateId={}, topic={}",
+                        event.getId(), event.getEventType(), event.getAggregateId(), resolveTopic(event), e);
                 outboxResultHandler.handleEventFailed(event, e.getMessage());
             }
         }
     }
+
 
     private String resolveTopic(OutboxEvent event) {
         String aggregateType = event.getAggregateType();

@@ -2,6 +2,7 @@ package com.flowcrm.kafka.consumer;
 
 import com.flowcrm.kafka.dto.EventEnvelope;
 import com.flowcrm.kafka.service.EventProcessingService;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.BackOff;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Component;
 public class TaskEventConsumer {
 
     private final EventProcessingService eventProcessingService;
+    private final MeterRegistry meterRegistry;
 
     @RetryableTopic(
             attempts = "${kafka.consumer.retry.max-attempts:3}",
@@ -28,9 +30,10 @@ public class TaskEventConsumer {
     )
     @KafkaListener(topics = "${app.kafka.topics.task:tasks.events}", groupId = "${spring.kafka.consumer.group-id:flowcrm-monolith}")
     public void consumeTaskEvent(EventEnvelope envelope) {
-        log.info("Received event from topic tasks.events: eventId={}, eventType={}, aggregateId={}",
+        log.info("Received event from topic tasks.events: eventId={}, eventType={}, aggregateType={}, aggregateId={}",
                 envelope != null ? envelope.id() : null,
                 envelope != null ? envelope.eventType() : null,
+                envelope != null ? envelope.aggregateType() : null,
                 envelope != null ? envelope.aggregateId() : null);
 
         eventProcessingService.processEvent(envelope);
@@ -38,8 +41,12 @@ public class TaskEventConsumer {
 
     @DltHandler
     public void handleDlt(EventEnvelope envelope) {
-        log.error("Event sent to DLT (tasks.events.DLT): eventId={}, eventType={}",
+        log.error("Event sent to DLT (tasks.events.DLT): eventId={}, eventType={}, aggregateType={}, aggregateId={}",
                 envelope != null ? envelope.id() : null,
-                envelope != null ? envelope.eventType() : null);
+                envelope != null ? envelope.eventType() : null,
+                envelope != null ? envelope.aggregateType() : null,
+                envelope != null ? envelope.aggregateId() : null);
+        meterRegistry.counter("kafka.events.dlt", "topic", "tasks.events.DLT").increment();
     }
 }
+

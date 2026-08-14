@@ -4,6 +4,7 @@ import com.flowcrm.auth.entity.User;
 import com.flowcrm.common.enums.Role;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
@@ -16,9 +17,18 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Page<User> findByActive(boolean active, Pageable pageable);
     Page<User> findByRoleAndActive(Role role, boolean active, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"organization"})
     Page<User> findByOrganizationId(UUID organizationId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"organization"})
     Page<User> findByOrganizationIdAndRole(UUID organizationId, Role role, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"organization"})
     Page<User> findByOrganizationIdAndActive(UUID organizationId, boolean active, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"organization"})
     Page<User> findByOrganizationIdAndRoleAndActive(UUID organizationId, Role role, boolean active, Pageable pageable);
+
     Optional<User> findByIdAndOrganizationId(UUID id, UUID organizationId);
 }
+

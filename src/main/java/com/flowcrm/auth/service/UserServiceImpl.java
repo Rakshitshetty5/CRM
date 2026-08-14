@@ -9,6 +9,8 @@ import com.flowcrm.common.exception.EmailAlreadyExistsException;
 import com.flowcrm.common.exception.ResourceNotFoundException;
 import com.flowcrm.common.security.UserContext;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
@@ -27,6 +29,7 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
 
     @Override
+    @Cacheable(value = "userProfile", key = "@userContext.getUserId()")
     @Transactional(readOnly = true)
     public UserResponse getCurrentUser() {
         User currentUser = getAuthenticatedUser();
@@ -86,6 +89,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Cacheable(value = "userProfile", key = "#userId")
     @Transactional(readOnly = true)
     public UserResponse getUserById(UUID userId) {
         User currentUser = getAuthenticatedUser();
@@ -97,6 +101,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @CacheEvict(value = "userProfile", key = "#userId")
     @Transactional
     public UserResponse updateUserStatus(UUID userId, boolean active) {
         User currentUser = getAuthenticatedUser();
@@ -120,6 +125,7 @@ public class UserServiceImpl implements UserService {
         User updatedUser = userRepository.save(user);
         return mapToUserResponse(updatedUser);
     }
+
 
     private User getAuthenticatedUser() {
         UUID userId = userContext.getUserId();

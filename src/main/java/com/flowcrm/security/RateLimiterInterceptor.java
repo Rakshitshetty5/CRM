@@ -5,6 +5,7 @@ import com.flowcrm.common.exception.RateLimitExceededException;
 import com.flowcrm.common.ratelimit.RateLimiter;
 import com.flowcrm.common.ratelimit.RateLimiterResult;
 import com.flowcrm.common.security.UserContext;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ public class RateLimiterInterceptor implements HandlerInterceptor {
     private final RateLimitProperties rateLimitProperties;
     private final RateLimiter rateLimiter;
     private final UserContext userContext;
+    private final MeterRegistry meterRegistry;
 
     @Override
     public boolean preHandle(
@@ -41,7 +43,9 @@ public class RateLimiterInterceptor implements HandlerInterceptor {
         RateLimiterResult result = rateLimiter.check(rateLimitKey, maxRequests, 60L);
 
         if (!result.isAllowed()) {
-            log.warn("Rate limit exceeded for key={}, retryAfterSeconds={}", rateLimitKey, result.retryAfterSeconds());
+            log.warn("Rate limit exceeded for key={}, userId={}, uri={}, retryAfterSeconds={}",
+                    rateLimitKey, userId, request.getRequestURI(), result.retryAfterSeconds());
+            meterRegistry.counter("rate_limit.rejections").increment();
             throw new RateLimitExceededException("Too many requests. Please try again later.", result.retryAfterSeconds());
         }
 
@@ -56,3 +60,4 @@ public class RateLimiterInterceptor implements HandlerInterceptor {
         return xfHeader.split(",")[0].trim();
     }
 }
+

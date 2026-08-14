@@ -22,8 +22,9 @@ class TaskEventConsumerTest {
 
     @BeforeEach
     void setUp() {
-        taskEventConsumer = new TaskEventConsumer(eventProcessingService);
+        taskEventConsumer = new TaskEventConsumer(eventProcessingService, new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
     }
+
 
     @Test
     void testConsumeTaskEvent() {
