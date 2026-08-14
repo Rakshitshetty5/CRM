@@ -26,7 +26,9 @@ import com.flowcrm.lead.repository.LeadSpecification;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -63,6 +65,8 @@ public class LeadServiceImpl implements LeadService {
                 .assignedTo(currentUser)
                 .organization(currentUser.getOrganization())
                 .build();
+
+
 
         Lead savedLead = leadRepository.save(lead);
 
@@ -294,6 +298,10 @@ public class LeadServiceImpl implements LeadService {
     }
 
     private LeadResponse mapToLeadResponse(Lead lead) {
+        String assignedToName = null;
+        if (lead.getAssignedTo() != null) {
+            assignedToName = (lead.getAssignedTo().getFirstName() + " " + lead.getAssignedTo().getLastName()).trim();
+        }
         return new LeadResponse(
                 lead.getId(),
                 lead.getFirstName(),
@@ -305,10 +313,12 @@ public class LeadServiceImpl implements LeadService {
                 lead.getSource(),
                 lead.getNotes(),
                 lead.getAssignedTo() != null ? lead.getAssignedTo().getId() : null,
+                assignedToName,
                 lead.getCreatedAt(),
                 lead.getUpdatedAt()
         );
     }
+
 
     private LeadActivityResponse mapToLeadActivityResponse(LeadActivity activity) {
         return new LeadActivityResponse(

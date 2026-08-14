@@ -72,7 +72,7 @@ class TaskControllerTest {
         TaskResponse response = new TaskResponse(
                 taskId, "Send pricing details", "Send enterprise pricing PDF",
                 TaskStatus.PENDING, TaskPriority.HIGH, LocalDateTime.now().plusDays(2),
-                leadId, userId, userId, LocalDateTime.now(), LocalDateTime.now()
+                leadId, "Acme Lead", userId, "Sales Rep", userId, LocalDateTime.now(), LocalDateTime.now()
         );
 
         when(taskService.createTask(any(CreateTaskRequest.class))).thenReturn(response);
@@ -82,6 +82,8 @@ class TaskControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(taskId.toString()))
+                .andExpect(jsonPath("$.leadName").value("Acme Lead"))
+                .andExpect(jsonPath("$.assignedToName").value("Sales Rep"))
                 .andExpect(jsonPath("$.status").value("PENDING"))
                 .andExpect(jsonPath("$.priority").value("HIGH"));
     }
@@ -96,7 +98,7 @@ class TaskControllerTest {
         TaskResponse response = new TaskResponse(
                 taskId, "Send pricing details", null,
                 TaskStatus.PENDING, TaskPriority.HIGH, LocalDateTime.now().plusDays(2),
-                leadId, userId, userId, LocalDateTime.now(), LocalDateTime.now()
+                leadId, "Acme Lead", userId, "Sales Rep", userId, LocalDateTime.now(), LocalDateTime.now()
         );
 
         PageImpl<TaskResponse> page = new PageImpl<>(List.of(response), PageRequest.of(0, 20), 1);
@@ -111,6 +113,8 @@ class TaskControllerTest {
                         .param("assignedTo", userId.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].id").value(taskId.toString()))
+                .andExpect(jsonPath("$.content[0].leadName").value("Acme Lead"))
+                .andExpect(jsonPath("$.content[0].assignedToName").value("Sales Rep"))
                 .andExpect(jsonPath("$.content[0].status").value("PENDING"));
     }
 
@@ -124,7 +128,7 @@ class TaskControllerTest {
         TaskResponse response = new TaskResponse(
                 taskId, "Send pricing details", null,
                 TaskStatus.PENDING, TaskPriority.HIGH, LocalDateTime.now().plusDays(2),
-                leadId, userId, userId, LocalDateTime.now(), LocalDateTime.now()
+                leadId, "Acme Lead", userId, "Sales Rep", userId, LocalDateTime.now(), LocalDateTime.now()
         );
 
         when(taskService.getTaskById(taskId)).thenReturn(response);
@@ -150,7 +154,7 @@ class TaskControllerTest {
         TaskResponse response = new TaskResponse(
                 taskId, "Updated title", "Updated description",
                 TaskStatus.PENDING, TaskPriority.MEDIUM, LocalDateTime.now().plusDays(3),
-                leadId, userId, userId, LocalDateTime.now(), LocalDateTime.now()
+                leadId, "Acme Lead", userId, "Sales Rep", userId, LocalDateTime.now(), LocalDateTime.now()
         );
 
         when(taskService.updateTask(eq(taskId), any(UpdateTaskRequest.class))).thenReturn(response);
@@ -175,8 +179,9 @@ class TaskControllerTest {
         TaskResponse response = new TaskResponse(
                 taskId, "Send pricing details", null,
                 TaskStatus.COMPLETED, TaskPriority.HIGH, LocalDateTime.now().plusDays(2),
-                leadId, userId, userId, LocalDateTime.now(), LocalDateTime.now()
+                leadId, "Acme Lead", userId, "Sales Rep", userId, LocalDateTime.now(), LocalDateTime.now()
         );
+
 
         when(taskService.updateTaskStatus(eq(taskId), any(UpdateTaskStatusRequest.class))).thenReturn(response);
 

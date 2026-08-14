@@ -67,7 +67,7 @@ class LeadControllerTest {
 
         LeadResponse response = new LeadResponse(
                 leadId, "Rahul", "Sharma", "rahul@abc.com", "+919876543210",
-                "ABC Tech", LeadStatus.NEW, LeadSource.WEBSITE, "Notes", userId,
+                "ABC Tech", LeadStatus.NEW, LeadSource.WEBSITE, "Notes", userId, "Sales Rep",
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
@@ -79,6 +79,7 @@ class LeadControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(leadId.toString()))
                 .andExpect(jsonPath("$.firstName").value("Rahul"))
+                .andExpect(jsonPath("$.assignedToName").value("Sales Rep"))
                 .andExpect(jsonPath("$.status").value("NEW"));
     }
 
@@ -89,7 +90,7 @@ class LeadControllerTest {
         UUID userId = UUID.randomUUID();
         LeadResponse response = new LeadResponse(
                 leadId, "Rahul", "Sharma", "rahul@abc.com", "+919876543210",
-                "ABC Tech", LeadStatus.QUALIFIED, LeadSource.WEBSITE, "Notes", userId,
+                "ABC Tech", LeadStatus.QUALIFIED, LeadSource.WEBSITE, "Notes", userId, "Sales Rep",
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
@@ -106,6 +107,7 @@ class LeadControllerTest {
                         .param("search", "rahul"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].id").value(leadId.toString()))
+                .andExpect(jsonPath("$.content[0].assignedToName").value("Sales Rep"))
                 .andExpect(jsonPath("$.content[0].status").value("QUALIFIED"));
     }
 
@@ -116,7 +118,7 @@ class LeadControllerTest {
         UUID userId = UUID.randomUUID();
         LeadResponse response = new LeadResponse(
                 leadId, "Rahul", "Sharma", "rahul@abc.com", "+919876543210",
-                "ABC Tech", LeadStatus.NEW, LeadSource.WEBSITE, "Notes", userId,
+                "ABC Tech", LeadStatus.NEW, LeadSource.WEBSITE, "Notes", userId, "Sales Rep",
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
@@ -140,7 +142,7 @@ class LeadControllerTest {
 
         LeadResponse response = new LeadResponse(
                 leadId, "Rahul", "Sharma", "rahul@abc.com", "+919876543210",
-                "ABC Tech Updated", LeadStatus.NEW, LeadSource.REFERRAL, "Updated notes", userId,
+                "ABC Tech Updated", LeadStatus.NEW, LeadSource.REFERRAL, "Updated notes", userId, "Sales Rep",
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
@@ -163,9 +165,10 @@ class LeadControllerTest {
 
         LeadResponse response = new LeadResponse(
                 leadId, "Rahul", "Sharma", "rahul@abc.com", "+919876543210",
-                "ABC Tech", LeadStatus.QUALIFIED, LeadSource.WEBSITE, "Notes", userId,
+                "ABC Tech", LeadStatus.QUALIFIED, LeadSource.WEBSITE, "Notes", userId, "Sales Rep",
                 LocalDateTime.now(), LocalDateTime.now()
         );
+
 
         when(leadService.updateLeadStatus(eq(leadId), any(UpdateLeadStatusRequest.class))).thenReturn(response);
 

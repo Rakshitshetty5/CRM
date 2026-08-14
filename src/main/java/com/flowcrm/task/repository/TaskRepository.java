@@ -24,7 +24,9 @@ public interface TaskRepository extends JpaRepository<Task, UUID>, JpaSpecificat
     @EntityGraph(attributePaths = {"lead", "assignedTo"})
     Page<Task> findAll(Specification<Task> spec, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"lead", "assignedTo"})
     Optional<Task> findByIdAndOrganizationId(UUID id, UUID organizationId);
+
 
     long countByOrganizationId(UUID organizationId);
     long countByOrganizationIdAndStatus(UUID organizationId, TaskStatus status);

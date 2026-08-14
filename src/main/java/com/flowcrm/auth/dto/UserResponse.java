@@ -13,6 +13,7 @@ public record UserResponse(
         Role role,
         boolean active,
         UUID organizationId,
+        String organizationName,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

@@ -21,7 +21,9 @@ public interface LeadRepository extends JpaRepository<Lead, UUID>, JpaSpecificat
     @EntityGraph(attributePaths = {"assignedTo"})
     Page<Lead> findAll(Specification<Lead> spec, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"assignedTo"})
     Optional<Lead> findByIdAndOrganizationId(UUID id, UUID organizationId);
+
 
     long countByOrganizationId(UUID organizationId);
 

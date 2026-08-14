@@ -246,6 +246,19 @@ public class TaskServiceImpl implements TaskService {
     }
 
     private TaskResponse mapToTaskResponse(Task task) {
+        String leadName = null;
+        if (task.getLead() != null) {
+            String fullName = (task.getLead().getFirstName() + " " + task.getLead().getLastName()).trim();
+            if (task.getLead().getCompany() != null && !task.getLead().getCompany().isBlank()) {
+                leadName = fullName + " (" + task.getLead().getCompany() + ")";
+            } else {
+                leadName = fullName;
+            }
+        }
+        String assignedToName = null;
+        if (task.getAssignedTo() != null) {
+            assignedToName = (task.getAssignedTo().getFirstName() + " " + task.getAssignedTo().getLastName()).trim();
+        }
         return new TaskResponse(
                 task.getId(),
                 task.getTitle(),
@@ -254,10 +267,13 @@ public class TaskServiceImpl implements TaskService {
                 task.getPriority(),
                 task.getDueDate(),
                 task.getLead() != null ? task.getLead().getId() : null,
+                leadName,
                 task.getAssignedTo() != null ? task.getAssignedTo().getId() : null,
+                assignedToName,
                 task.getCreatedBy(),
                 task.getCreatedAt(),
                 task.getUpdatedAt()
         );
     }
+
 }

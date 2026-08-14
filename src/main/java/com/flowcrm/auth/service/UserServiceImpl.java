@@ -145,8 +145,10 @@ public class UserServiceImpl implements UserService {
                 user.getRole(),
                 user.isActive(),
                 user.getOrganization() != null ? user.getOrganization().getId() : null,
+                user.getOrganization() != null ? user.getOrganization().getName() : null,
                 user.getCreatedAt(),
                 user.getUpdatedAt()
         );
     }
+
 }

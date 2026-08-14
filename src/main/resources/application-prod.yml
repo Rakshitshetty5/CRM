@@ -1,26 +1,31 @@
+server:
+  port: ${PORT:8080}
+
 spring:
-  application:
-    name: flowcrm
+  config:
+    activate:
+      on-profile: prod
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/flowcrm-db}
-    username: ${DB_USER:rakshit}
-    password: ${DB_PASS:password}
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASS}
+    driver-class-name: org.postgresql.Driver
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
+      host: ${REDIS_HOST}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
       ssl:
         enabled: ${REDIS_SSL_ENABLED:false}
   jpa:
     hibernate:
-      ddl-auto: ${DDL_AUTO:update}
-    show-sql: true
+      ddl-auto: ${DDL_AUTO:validate}
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
   kafka:
-    bootstrap-servers: ${KAFKA_BROKERS:localhost:29092}
+    bootstrap-servers: ${KAFKA_BROKERS}
     properties:
       security.protocol: ${KAFKA_SECURITY_PROTOCOL:PLAINTEXT}
       sasl.mechanism: ${KAFKA_SASL_MECHANISM:PLAIN}
@@ -46,9 +51,9 @@ spring:
         spring.json.value.default.type: com.flowcrm.kafka.dto.EventEnvelope
 
 jwt:
-  secret-key: ${JWT_SECRET_KEY:dont-use-in-prod-a9asd7fulasjdfaklsdfu98q3uhjdiosh897as9d8f7ua9osufdjilasdjf}
-  access-token-expiration-ms: 86400000 # 24 hours in ms
-  refresh-token-expiration-ms: 604800000 # 7 days in ms
+  secret-key: ${JWT_SECRET_KEY}
+  access-token-expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:86400000}
+  refresh-token-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
 
 app:
   cors:
@@ -56,7 +61,6 @@ app:
   cache:
     dashboard:
       ttl: ${DASHBOARD_CACHE_TTL:60s}
-
   follow-up:
     polling:
       fixed-delay: 60000
@@ -95,6 +99,3 @@ management:
       enabled: true
     defaults:
       enabled: true
-
-
-

@@ -79,9 +79,11 @@ public class AuthServiceImpl implements AuthService {
                     savedUser.getRole(),
                     savedUser.isActive(),
                     savedUser.getOrganization() != null ? savedUser.getOrganization().getId() : null,
+                    savedUser.getOrganization() != null ? savedUser.getOrganization().getName() : null,
                     savedUser.getCreatedAt(),
                     savedUser.getUpdatedAt()
             );
+
         } catch (DataIntegrityViolationException ex) {
             if (organizationRepository.existsByNameIgnoreCase(request.organizationName())) {
                 throw new OrganizationAlreadyExistsException("Organization already exists with name: " + request.organizationName());

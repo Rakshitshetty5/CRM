@@ -17,6 +17,7 @@ public record LeadResponse(
         LeadSource source,
         String notes,
         UUID assignedTo,
+        String assignedToName,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

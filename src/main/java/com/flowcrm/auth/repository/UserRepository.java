@@ -11,7 +11,13 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface UserRepository extends JpaRepository<User, UUID> {
+    @EntityGraph(attributePaths = {"organization"})
     Optional<User> findByEmail(String email);
+
+    @Override
+    @EntityGraph(attributePaths = {"organization"})
+    Optional<User> findById(UUID id);
+
     boolean existsByEmail(String email);
     Page<User> findByRole(Role role, Pageable pageable);
     Page<User> findByActive(boolean active, Pageable pageable);
@@ -29,6 +35,6 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @EntityGraph(attributePaths = {"organization"})
     Page<User> findByOrganizationIdAndRoleAndActive(UUID organizationId, Role role, boolean active, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"organization"})
     Optional<User> findByIdAndOrganizationId(UUID id, UUID organizationId);
 }
-

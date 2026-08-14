@@ -14,7 +14,9 @@ public record TaskResponse(
         TaskPriority priority,
         LocalDateTime dueDate,
         UUID leadId,
+        String leadName,
         UUID assignedTo,
+        String assignedToName,
         UUID createdBy,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
