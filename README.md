@@ -1,8 +1,8 @@
 # FlowCRM
 
-FlowCRM is a modern, enterprise-grade Customer Relationship Management (CRM) platform designed as a **Modular Monolith** with an event-driven backend and a responsive React frontend.
+FlowCRM is a modern, production-oriented Customer Relationship Management (CRM) platform designed as a **Modular Monolith** with an event-driven backend and a responsive React frontend.
 
-The platform provides end-to-end management for sales leads, task workflows, organization multi-tenancy, real-time notifications, and executive dashboards. Built with **Spring Boot 3** (Java 21) and **React 19**, FlowCRM incorporates production-grade distributed systems patterns—including **Transactional Outbox**, **Kafka Event Streaming**, **Redis Sliding-Window Rate Limiting**, **Redis Distributed Locking**, **Event Idempotency**, **Dead Letter Queues (DLQ)**, and **Cache-Aside Scoped Caching**.
+The platform provides end-to-end management for sales leads, task workflows, organization multi-tenancy, real-time notifications, and executive dashboards. Built with **Spring Boot 3** (Java 21) and **React 19**, FlowCRM incorporates production-oriented distributed systems patterns—including **Transactional Outbox**, **Kafka Event Streaming**, **Redis Sliding-Window Rate Limiting**, **Redis Distributed Locking**, **Event Idempotency**, **Dead Letter Queues (DLQ)**, and **Cache-Aside Scoped Caching**.
 
 ### Main Users & Workflows
 - **Admins**: Manage organization-wide leads and tasks, assign leads to team members, view system-wide dashboard metrics, and monitor audit trails.
@@ -12,19 +12,19 @@ The platform provides end-to-end management for sales leads, task workflows, org
 
 # Features
 
-- **Authentication & Authorization**: Secure JWT-based stateless authentication using Spring Security, supporting BCrypt password hashing and Role-Based Access Control (RBAC).
+- **Authentication & Authorization**: Secure JWT-based stateless authentication using Spring Security, supporting BCrypt password hashing, refresh token rotation, and Role-Based Access Control (RBAC).
 - **Multi-Tenancy & Tenant Isolation**: Organization-level data partitioning ensuring strict data isolation across organizations across all API queries.
 - **User Management**: Support for `ADMIN` and `SALES_REP` user roles with scoped permissions.
 - **Lead Management**: Full lifecycle management of leads across stages (`NEW`, `CONTACTED`, `QUALIFIED`, `DEMO_SCHEDULED`, `PROPOSAL_SENT`, `NEGOTIATION`, `WON`, `LOST`), sources (`WEBSITE`, `REFERRAL`, `EMAIL`, `SOCIAL_MEDIA`, `MANUAL`), lead assignments, and automated activity audit trails. Default search/filter and sorting (`createdAt DESC`).
 - **Task Management**: Task creation, assignments, priority management (`LOW`, `MEDIUM`, `HIGH`, `URGENT`), due dates, overdue detection, and status workflow transitions (`PENDING`, `IN_PROGRESS`, `COMPLETED`) with backend-enforced status transition rules. Default search/filter and sorting (incomplete tasks by `dueDate ASC` before completed tasks by `updatedAt DESC`).
 - **Notifications**: Automated in-app notifications generated asynchronously from domain events (such as `LeadAssigned` and `TaskFollowUpDue`) with enriched metadata.
 - **Dashboard**: Real-time analytical dashboard presenting lead status distributions, task completion metrics, and overdue task counters, scoped by organization and role.
-- **Redis Caching**: Cache-Aside implementation using Spring Cache and Jackson JSON serialization for dashboard metrics with organization and user-specific cache keys (`org:{orgId}:user:{userId}`) and automatic cache eviction on data mutations.
+- **Redis Caching**: Cache-Aside implementation using Spring Cache and Jackson JSON serialization for dashboard metrics with organization and user-specific cache keys (`org:{orgId}:user:{userId}`) and user profiles (`userProfile`), with automatic cache eviction on data mutations.
 - **Rate Limiting**: Custom API rate limiter implemented via atomic Redis Lua scripts enforcing a sliding window algorithm to protect endpoints against brute force and abuse.
-- **Distributed Locking**: Redis-backed distributed locking using atomic `SET NX EX` and Lua release scripts to prevent concurrent scheduled job execution across multi-node backend deployments.
+- **Distributed Locking**: Custom Redis-backed distributed locking using atomic `opsForValue().setIfAbsent` (SET NX EX) and Lua release scripts to prevent concurrent scheduled job execution across multi-node backend deployments.
 - **Kafka & Event-Driven Processing**: Asynchronous event publishing and consuming using Apache Kafka topics (`leads.events`, `tasks.events`) with consumer group isolation.
 - **Transactional Outbox Pattern**: Relational database outbox table (`outbox_events`) polled by a background job to guarantee atomicity between local database transactions and Kafka event dispatching without dual-write inconsistencies.
-- **Idempotency & Deduplication**: Database-backed event deduplication (`processed_events` table) ensuring at-least-once Kafka messages are processed exactly once without duplicate side effects.
+- **Idempotency & Deduplication**: Database-backed event deduplication (`processed_events` table) ensuring at-least-once Kafka messages are processed idempotently without duplicate side effects.
 - **Dead-Letter Handling**: Automatic retries with backoff and Dead Letter Topic (`.DLT`) routing for unprocessable events.
 - **Scheduled Jobs**: Background schedulers for task follow-up reminder evaluation and transactional outbox event publishing.
 - **Observability**: Health checks and operational metrics via Spring Boot Actuator (`/actuator/health`, `/actuator/metrics`).
@@ -61,8 +61,8 @@ graph TD
 ### Component Responsibilities
 - **React Frontend**: Provides an interactive user interface for authentication, lead tracking, task status management, and dashboard visualization.
 - **Spring Boot REST API**: Handles business logic, authentication, request validation, tenant scoping, and RESTful endpoint exposure.
-- **PostgreSQL**: Serves as the primary ACID relational database for domain entities, outbox events, and processed event tracking.
-- **Redis**: Provides low-latency caching for dashboard metrics, sliding-window rate limiting execution, and distributed locking.
+- **PostgreSQL**: Serves as the primary ACID relational database for domain entities, outbox events, refresh tokens, and processed event tracking.
+- **Redis**: Provides low-latency caching for dashboard metrics and user profiles, sliding-window rate limiting execution, and distributed locking.
 - **Apache Kafka**: Acts as the asynchronous event streaming broker for decoupled notifications and background event handling.
 
 ---
@@ -75,8 +75,8 @@ graph TD
 | **Spring Boot 3.4.3** | Web & Application Framework | Dependency Injection, MVC, Actuator |
 | **Spring Security** | Authentication & Authorization | JWT Filter, RBAC, Security Rules |
 | **Spring Data JPA / Hibernate** | ORM & Relational Data Access | Repositories, Database Entities |
-| **PostgreSQL 18** | Primary Relational Database | Domain Tables, Outbox, Processed Events |
-| **Redis 7** | Cache & In-Memory Store | Dashboard Caching, Rate Limiting, Locks |
+| **PostgreSQL 18** | Primary Relational Database | Domain Tables, Outbox, Processed Events, Tokens |
+| **Redis 7** | Cache & In-Memory Store | Dashboard & Profile Caching, Rate Limiting, Locks |
 | **Apache Kafka 7.5** | Asynchronous Event Streaming | Event Bus, Decoupled Notification Triggers |
 | **React 19** | Frontend UI Framework | User Web Application (`frontend/`) |
 | **Vite 8** | Frontend Build Tool | React Dev Server & Production Bundling |
@@ -94,7 +94,7 @@ The backend follows a domain-driven modular package structure under `com.flowcrm
 
 ```text
 com.flowcrm
-├── auth/            # User authentication, registration, JWT security filter
+├── auth/            # Security authentication, refresh token service, user management
 ├── lead/            # Lead lifecycle management, lead activities, specifications
 ├── task/            # Task management, status workflow, scheduler
 ├── notification/    # In-app notifications, metadata enrichment
@@ -103,7 +103,7 @@ com.flowcrm
 ├── outbox/          # Transactional outbox polling & event dispatching
 ├── kafka/           # Kafka topic consumers, event DTOs, deduplication
 ├── security/        # Rate limiting interceptor & security configurations
-└── common/          # Audit entities, exception handling, Redis lock, cache config
+└── common/          # Audit entities, exception handling, Redis locks, cache config
 ```
 
 ### Layer Responsibilities
@@ -137,23 +137,29 @@ HTTP Request
 
 # Authentication & Security
 
-FlowCRM implements stateless JWT authentication backed by Spring Security:
+FlowCRM implements stateless JWT authentication backed by Spring Security with refresh token rotation:
 
 ```text
-Client Application                 Backend Server
-      |                                  |
-      |--- 1. POST /api/v1/auth/login -->| (Validate email & password via BCrypt)
-      |<-- 2. JWT Access Token ----------| (Return Bearer token in response)
-      |                                  |
-      |--- 3. HTTP GET /api/v1/... ------>| (Header: Authorization: Bearer <token>)
-      |                                  | [JwtAuthenticationFilter validates token]
-      |                                  | [UserContext set in ThreadLocal]
-      |<-- 4. HTTP 200 OK ---------------| (Protected Resource Access)
+Client Application                 Backend Server                 PostgreSQL DB
+      |                                  |                              |
+      |--- 1. POST /api/v1/auth/login -->|                              |
+      |                                  |--- 2. Authenticate BCrypt -->|
+      |                                  |--- 3. Save Hashed Token ---->|
+      |<-- 4. JWT & Refresh Token -------|                              |
+      |                                  |                              |
+      |--- 5. GET /api/v1/... (Bearer) ->|                              |
+      |                                  |[JwtAuthenticationFilter]     |
+      |<-- 6. HTTP 200 OK ---------------|                              |
+      |                                  |                              |
+      |--- 7. POST /api/v1/auth/refresh->|                              |
+      |                                  |--- 8. Verify & Revoke Old -->|
+      |<-- 9. New Tokens ----------------|--- 10. Store New Hashed Token|
 ```
 
 ### Key Security Features
 - **Stateless Sessions**: Configured with `SessionCreationPolicy.STATELESS` in `SecurityConfig.java`.
-- **JWT Tokens**: Signed using `io.jsonwebtoken` (JJWT 0.12.7) containing user ID, email, role, and organization ID.
+- **JWT Access Tokens**: Signed using `io.jsonwebtoken` (JJWT 0.12.7) containing user ID, email, role, and organization ID with 24-hour expiration (`86400000ms`).
+- **Refresh Token Rotation**: Refresh tokens are cryptographically hashed and saved in PostgreSQL (`refresh_tokens` table). On use via `/api/v1/auth/refresh`, the old token is marked `revoked = true` and a new token pair is issued.
 - **BCrypt Password Hashing**: Passwords are standardly hashed using `BCryptPasswordEncoder`.
 - **User Context Injection**: `UserContext` bean retrieves authenticated user details and tenant organization IDs from `SecurityContextHolder` per thread.
 - **CORS Configuration**: Restricts origin requests via `allowed-origins` configuration (`http://localhost:3000`, `http://localhost:5173`).
@@ -197,7 +203,7 @@ The Lead module manages prospective customer interactions throughout the sales f
 The Task module manages operational follow-up tasks associated with leads.
 
 ### Task Status Workflow Transition Rules
-Backend rules in `TaskServiceImpl.java` strictly enforce allowed status transitions and reject invalid transitions with HTTP 400:
+Backend rules in `TaskServiceImpl.java` strictly enforce allowed status transitions and reject invalid transitions with HTTP 400 (`IllegalArgumentException`):
 
 ```mermaid
 stateDiagram-v2
@@ -210,6 +216,11 @@ stateDiagram-v2
     COMPLETED --> IN_PROGRESS: Disallowed (HTTP 400)
 ```
 
+- **Enforced Transitions**:
+  - `PENDING` → `IN_PROGRESS` or `COMPLETED`
+  - `IN_PROGRESS` → `PENDING` or `COMPLETED`
+  - `COMPLETED` → `PENDING` (Reopen)
+  - `COMPLETED` → `IN_PROGRESS` (Disallowed & rejected with HTTP 400 Bad Request)
 - **Priority Levels**: `LOW`, `MEDIUM`, `HIGH`, `URGENT`.
 - **Default Sorting**: Incomplete tasks (`PENDING`, `IN_PROGRESS`) appear first ordered by `dueDate ASC`. Completed tasks (`COMPLETED`) appear after ordered by `updatedAt DESC`.
 
@@ -251,13 +262,15 @@ Query PostgreSQL Database
 Populate Redis Cache (TTL) & Return Data
 ```
 
+### Actual Redis Use Cases & Configurations
+1. **Dashboard Metrics Caching**: `@Cacheable(value = "dashboard", keyGenerator = "dashboardCacheKeyGenerator")` caches aggregated dashboard stats per user/organization with a 60-second TTL. Evicted via `@CacheEvict(value = "dashboard", allEntries = true)` on lead/task writes.
+2. **User Profile Caching**: `@Cacheable(value = "userProfile", key = "#userId")` caches user profile responses (`UserResponse`) with a 10-minute TTL. Evicted via `@CacheEvict(value = "userProfile", key = "#userId")` on user profile updates.
+3. **Sliding-Window Rate Limiting**: Redis Sorted Sets (`ratelimit:sliding:{key}`) store timestamps managed atomically by a custom Lua script.
+4. **Distributed Locking**: Redis key `lock:follow-up-reminder` managed by `RedisDistributedLockService` prevents concurrent execution of background schedulers.
+
 ### Cache Configuration Details
 - **Manager**: `RedisCacheManager` configured via `CacheConfig.java`.
 - **Serializer**: `GenericJackson2JsonRedisSerializer` with polymorphic type validation.
-- **Caches**:
-  - `dashboard`: TTL = 60s
-  - `userProfile`: TTL = 10 minutes
-  - Defaults: TTL = 10 minutes
 
 ---
 
@@ -276,11 +289,19 @@ FlowCRM employs a custom sliding-window rate limiter powered by Redis and Lua to
 
 # Distributed Locking
 
-To prevent race conditions across multiple application instances during background jobs, FlowCRM provides `RedisDistributedLockService`.
+To prevent race conditions across multiple backend application instances during scheduled background jobs, FlowCRM implements `RedisDistributedLockService`.
 
-- **Mechanism**: Atomic `SET lockKey lockValue NX EX ttl`.
-- **Atomic Release**: Lua script verifies `lockValue` matches before deleting the key.
-- **Usage**: `TaskFollowUpScheduler` acquires lock `lock:follow-up-reminder` (TTL 120s) before scanning and sending follow-up reminders.
+- **Mechanism**: Custom Redis locking using atomic `opsForValue().setIfAbsent(lockKey, lockValue, ttl)` (SET NX EX).
+- **Atomic Release**: Lua script verifies `lockValue` matches before deleting the key:
+  ```lua
+  if redis.call('get', KEYS[1]) == ARGV[1] then
+      return redis.call('del', KEYS[1])
+  else
+      return 0
+  end
+  ```
+- **Scheduled Job Usage**: `TaskFollowUpScheduler` acquires lock `lock:follow-up-reminder` (TTL 120s) before scanning and publishing follow-up reminders. If the lock is held by another node, execution is safely skipped.
+- **Note on ShedLock**: ShedLock is not used; custom `RedisDistributedLockService` provides distributed locking directly over Spring Data Redis.
 
 ---
 
@@ -289,7 +310,7 @@ To prevent race conditions across multiple application instances during backgrou
 | Job Name | Frequency | Target / Operation | Lock Mechanism |
 | :--- | :--- | :--- | :--- |
 | **`TaskFollowUpScheduler`** | Every 60s (`app.follow-up.polling.fixed-delay`) | Scans tasks with `dueDate <= NOW()` where `reminderSent = false`. Marks `reminderSent = true` and emits `TaskFollowUpDue` outbox event. | `RedisDistributedLockService` (`lock:follow-up-reminder`) |
-| **`OutboxPoller`** | Every 5s (`outbox.polling.fixed-delay`) | Scans `outbox_events` table where `status = PENDING`. Publishes events to Kafka (`leads.events`, `tasks.events`) and updates outbox status to `PUBLISHED` or `FAILED`. | Database row ordering & transactional state update |
+| **`OutboxPoller`** | Every 5s (`outbox.polling.fixed-delay`) | Scans `outbox_events` table where `status = PENDING`. Publishes events to Kafka (`leads.events`, `tasks.events`) and updates outbox status to `PUBLISHED` or `FAILED`. | Database state query & atomic transaction updates |
 
 ---
 
@@ -309,11 +330,14 @@ sequenceDiagram
     OP->>DB: Poll PENDING outbox events
     OP->>KAFKA: Publish event to topic
     OP->>DB: Mark Outbox Event as PUBLISHED
-    KAFKA->>CONS: Deliver message
+    KAFKA->>CONS: Deliver message (At-Least-Once)
     CONS->>SVC: Process event with Idempotency check
-    SVC->>DB: Record processed event in processed_events
+    SVC->>DB: Record event ID in processed_events table
     SVC->>DB: Create Notification entry
 ```
+
+### Event Delivery Semantics: At-Least-Once Delivery with Idempotent Consumer
+Kafka provides **at-least-once delivery**. To ensure duplicate network transmissions do not cause duplicate side effects (such as duplicate notifications), event processing in `EventProcessingService` relies on a PostgreSQL `processed_events` table (`processedEventRepository.existsById(eventId)`). Duplicate event deliveries are safely ignored.
 
 ### Event Topics & Consumers
 - **Topics**: `leads.events`, `tasks.events`.
@@ -328,15 +352,15 @@ sequenceDiagram
 To avoid the "dual-write" problem (where a database commit succeeds but a direct message broker publish fails), FlowCRM implements the **Transactional Outbox Pattern**:
 
 1. **Atomic Write**: Domain updates (e.g., updating a lead assignment) and the corresponding `OutboxEvent` are saved in the **same database transaction**.
-2. **Polling**: `OutboxPoller` fetches `PENDING` outbox records.
-3. **Dispatch**: Outbox events are serialized and sent to Kafka.
-4. **Completion**: Upon successful broker acknowledgment, outbox records are updated to `PUBLISHED`.
+2. **Polling**: `OutboxPoller` fetches `PENDING` outbox records every 5 seconds.
+3. **Dispatch**: Outbox events are serialized and sent to Kafka via `kafkaTemplate.send(...).get()`.
+4. **Completion**: Upon successful broker acknowledgment, outbox records are updated to `PUBLISHED`. If publishing fails, outbox records are marked `FAILED` and retried.
 
 ---
 
 # Idempotency
 
-Event consumer processing (`EventProcessingService.java`) guarantees idempotent execution:
+Event consumer processing (`EventProcessingService.java`) guarantees idempotent processing for incoming Kafka events:
 
 - **Store**: Uses PostgreSQL `processed_events` table storing `eventId` (UUID primary key).
 - **Check**: Before processing any event payload, the service checks:
@@ -351,9 +375,10 @@ Event consumer processing (`EventProcessingService.java`) guarantees idempotent 
 
 # N+1 Query Prevention
 
-FlowCRM prevents N+1 query performance degradation using optimized JPA strategies:
-- **Custom Aggregation Queries**: Dashboard repository queries use SQL group-by aggregations (`countLeadsByStatusForAdmin`) returning `List<Object[]>` instead of fetching full entity collections.
-- **Fetch Joins & Projections**: Entity relationships are mapped with `FetchType.LAZY` by default, and audit activity history queries fetch indexed relations directly (`findByLeadIdOrderByCreatedAtDesc`).
+FlowCRM prevents N+1 query performance degradation using specific, verified query optimization techniques:
+
+1. **JPA Entity Graphs (`@EntityGraph`)**: Repositories explicitly specify `@EntityGraph(attributePaths = {"assignedTo"})` in `LeadRepository` and `@EntityGraph(attributePaths = {"lead", "assignedTo"})` in `TaskRepository`. This instructs Hibernate to load relationships in a single `LEFT OUTER JOIN` SQL query instead of issuing separate SELECT statements for each row.
+2. **SQL GROUP BY Aggregations**: Dashboard metrics avoid loading collections into memory by performing SQL aggregate counts directly in the database (`SELECT l.status, COUNT(l) FROM Lead l WHERE ... GROUP BY l.status`).
 
 ---
 
@@ -366,7 +391,7 @@ Global exception processing is handled centrally by `GlobalExceptionHandler.java
 {
   "status": 400,
   "message": "Validation failed",
-  "timestamp": "2026-08-14T19:20:00.123",
+  "timestamp": "2026-08-15T00:15:00.123",
   "path": "/api/v1/leads",
   "errors": {
     "email": "Email should be valid",
@@ -399,7 +424,7 @@ The Swagger UI is configured with Bearer Token JWT authentication support, allow
 
 # API Response Structure
 
-All write and success API responses are wrapped in a standard `ApiResponse<T>` structure:
+Write and mutation API endpoints wrap their success payloads in a standardized `ApiResponse<T>` structure:
 
 ### Success Response Example (`ApiResponse<T>`)
 ```json
@@ -418,8 +443,8 @@ All write and success API responses are wrapped in a standard `ApiResponse<T>` s
     "notes": "Interested in enterprise tier",
     "assignedTo": "a81d4f21-7212-4c91-b3b2-9118c728e102",
     "assignedToName": "John Sales",
-    "createdAt": "2026-08-14T18:00:00",
-    "updatedAt": "2026-08-14T18:00:00"
+    "createdAt": "2026-08-15T00:00:00",
+    "updatedAt": "2026-08-15T00:00:00"
   }
 }
 ```
@@ -436,6 +461,7 @@ erDiagram
     ORGANIZATION ||--o{ NOTIFICATION : contains
     USER ||--o{ LEAD : assigned_to
     USER ||--o{ TASK : assigned_to
+    USER ||--o{ REFRESH_TOKEN : owns
     LEAD ||--o{ TASK : has
     LEAD ||--o{ LEAD_ACTIVITY : logs
     USER ||--o{ NOTIFICATION : receives
@@ -453,6 +479,12 @@ erDiagram
         string password
         string role
         boolean active
+    }
+    REFRESH_TOKEN {
+        uuid id PK
+        string token
+        boolean revoked
+        datetime expires_at
     }
     LEAD {
         uuid id PK
@@ -490,9 +522,53 @@ erDiagram
 
 ---
 
+# Key Engineering Challenges & Solutions
+
+| Engineering Challenge | Architectural Solution | Implementation in FlowCRM |
+| :--- | :--- | :--- |
+| **Database write succeeds but event publication fails** | Transactional Outbox Pattern | Saves domain entity and `OutboxEvent` in a single SQL transaction. `OutboxPoller` reads `PENDING` outbox records and publishes to Kafka. |
+| **Kafka message redelivery causes duplicate notifications** | At-Least-Once Delivery + Idempotent Consumer | `EventProcessingService` checks PostgreSQL `processed_events` table before executing event side effects. |
+| **Multiple server nodes run the same scheduled background job** | Distributed Locking | `TaskFollowUpScheduler` acquires a Redis lock (`lock:follow-up-reminder`) using atomic `opsForValue().setIfAbsent` (SET NX EX) before processing. |
+| **Frequent analytics queries overload database** | Scoped Cache-Aside Pattern | Aggregated dashboard stats are cached in Redis (`org:{orgId}:user:{userId}`) for 60s and invalidated on write operations. |
+| **API brute-force attacks and abuse** | Sliding-Window Rate Limiting | `RateLimiterInterceptor` evaluates request rates via atomic Redis Lua scripts on Sorted Sets (`ZSET`), returning HTTP 429 when exceeded. |
+| **N+1 query loading for entity relationships** | JPA Entity Graphs | `@EntityGraph` annotations on `LeadRepository` and `TaskRepository` fetch associations in a single SQL `LEFT OUTER JOIN`. |
+| **Disallowed task workflow state jumps** | Strict Backend Validation | `TaskServiceImpl.java` validates status transition rules and rejects invalid transitions (e.g. `COMPLETED` → `IN_PROGRESS`) with HTTP 400. |
+
+---
+
+# Architecture Decisions
+
+### 1. Redis Caching
+- **WHY**: Dashboard aggregation queries recalculate metrics across multiple status criteria.
+- **WHAT**: Reduces database load and speeds up response times for frequently viewed dashboard statistics.
+- **HOW**: Implemented using Spring Cache `@Cacheable("dashboard")` with a custom key generator (`org:{orgId}:user:{userId}`) and `@CacheEvict` on lead/task writes.
+
+### 2. Rate Limiting
+- **WHY**: Public endpoints are susceptible to brute force attacks and request flooding.
+- **WHAT**: Protects API availability by enforcing a request limit per user/IP.
+- **HOW**: Implemented via `RateLimiterInterceptor` running an atomic Redis Lua script over sorted sets (`ZSET`).
+
+### 3. Distributed Locking
+- **WHY**: In a multi-instance deployment, duplicate scheduled instances would process due task reminders simultaneously.
+- **WHAT**: Guarantees single-node execution for cron tasks.
+- **HOW**: Uses `RedisDistributedLockService` (`opsForValue().setIfAbsent` SET NX EX) with atomic Lua unlock scripts.
+
+### 4. Kafka & Transactional Outbox
+- **WHY**: Synchronous message publishing can fail or slow down REST APIs. Dual writes risk inconsistencies.
+- **WHAT**: Decouples domain event handling and guarantees eventual event delivery.
+- **HOW**: Business operations write to `outbox_events` in the local DB transaction. `OutboxPoller` publishes to Kafka topics.
+
+### 5. Idempotent Consumer Processing
+- **WHY**: Kafka delivers messages with at-least-once semantics, causing potential duplicate handling.
+- **WHAT**: Ensures duplicate Kafka messages do not generate duplicate notifications.
+- **HOW**: `EventProcessingService` persists event UUIDs in PostgreSQL `processed_events` table before executing side-effects.
+
+---
+
 # Security Considerations
 
 - **JWT Token Lifetime**: Configured with 24-hour access token expiration (`jwt.access-token-expiration-ms: 86400000`).
+- **Refresh Token Rotation**: Stored securely as SHA-256 hashes in PostgreSQL; invalidated and replaced on each refresh call.
 - **Stateless Authorization**: No server-side session state stored; tokens validated cryptographically on each request.
 - **Input Sanitization & Validation**: Request DTOs strictly annotated with `@NotBlank`, `@Email`, and custom validations.
 - **Environment Secret Externalization**: Production secret keys (`JWT_SECRET_KEY`, database credentials) overridden via environment variables.
@@ -502,14 +578,11 @@ erDiagram
 # Performance & Scalability
 
 ### Implemented Performance Features
-- **Redis Distributed Caching**: Eliminates redundant database reads for dashboard analytical counts.
+- **Redis Distributed Caching**: Eliminates redundant database reads for dashboard analytical counts and user profiles.
 - **Sliding-Window Rate Limiting**: Protects backend service compute resources against request bursts.
 - **Database Indexing**: Explicit database indexes added on `assigned_to`, `status`, `due_date`, `lead_id`, and `organization_id`.
 - **Outbox Asynchronous Decoupling**: Offloads background event notifications from synchronous REST request threads.
-
-### Potential Future Improvements
-- **Read Replicas**: Routing database read operations to read-only PostgreSQL replicas.
-- **Elasticsearch Integration**: Full-text search engine for complex lead search across millions of records.
+- **N+1 Optimization**: Uses `@EntityGraph` for eager fetching of JPA relations in paginated listing queries.
 
 ---
 
@@ -584,7 +657,7 @@ The frontend application will be available at `http://localhost:5173`.
 ```text
 flowcrm/
 ├── src/main/java/com/flowcrm/
-│   ├── auth/                # Security authentication & user service
+│   ├── auth/                # Security authentication, refresh tokens & user service
 │   ├── lead/                # Lead controllers, services, repositories
 │   ├── task/                # Task controllers, status workflow, scheduler
 │   ├── notification/        # In-app notifications & metadata parsing
@@ -657,21 +730,7 @@ Save Task in PostgreSQL ──► Evict Dashboard Cache in Redis ──► Retur
 - Redis sliding-window rate limiting.
 - Distributed lock protection on background jobs.
 - Transactional Outbox and Event Deduplication.
-
-### Before Real Production
-- **Secret Management**: Replace environment variable files with AWS Secrets Manager or HashiCorp Vault.
-- **Managed Cloud Services**: Deploy AWS RDS for PostgreSQL, AWS ElastiCache for Redis, and MSK for Kafka.
-- **Database Migrations**: Integrate Flyway or Liquibase for versioned database schema migration scripts.
-- **TLS/HTTPS**: Terminate SSL/TLS at ingress proxies or load balancers.
-
----
-
-# Future Improvements
-
-- **Database Migration Tooling**: Integration of Liquibase/Flyway for version-controlled DB migrations.
-- **Distributed Tracing**: Integration of OpenTelemetry and Jaeger for request tracing across Kafka consumers.
-- **Metrics Aggregation**: Exporting Prometheus metrics to Grafana dashboards.
-- **CI/CD Pipeline**: GitHub Actions workflow for automated testing and container publishing.
+- Refresh Token Rotation in PostgreSQL.
 
 ---
 
