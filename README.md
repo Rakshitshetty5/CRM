@@ -16,7 +16,8 @@ The platform provides end-to-end management for sales leads, task workflows, org
 - **Multi-Tenancy & Tenant Isolation**: Organization-level data partitioning ensuring strict data isolation across organizations across all API queries.
 - **User Management**: Support for `ADMIN` and `SALES_REP` user roles with scoped permissions.
 - **Lead Management**: Full lifecycle management of leads across stages (`NEW`, `CONTACTED`, `QUALIFIED`, `DEMO_SCHEDULED`, `PROPOSAL_SENT`, `NEGOTIATION`, `WON`, `LOST`), sources (`WEBSITE`, `REFERRAL`, `EMAIL`, `SOCIAL_MEDIA`, `MANUAL`), lead assignments, and automated activity audit trails. Default search/filter and sorting (`createdAt DESC`).
-- **Task Management**: Task creation, assignments, priority management (`LOW`, `MEDIUM`, `HIGH`, `URGENT`), due dates, overdue detection, and status workflow transitions (`PENDING`, `IN_PROGRESS`, `COMPLETED`) with backend-enforced status transition rules. Default search/filter and sorting (incomplete tasks by `dueDate ASC` before completed tasks by `updatedAt DESC`).
+- **Task Management**: Task creation, assignments, priority management (`LOW`, `MEDIUM`, `HIGH`), due dates, overdue detection, and status workflow transitions (`PENDING`, `IN_PROGRESS`, `COMPLETED`) with backend-enforced status transition rules. Default search/filter and sorting (incomplete tasks by `dueDate ASC` before completed tasks by `updatedAt DESC`).
+
 - **Notifications**: Automated in-app notifications generated asynchronously from domain events (such as `LeadAssigned` and `TaskFollowUpDue`) with enriched metadata.
 - **Dashboard**: Real-time analytical dashboard presenting lead status distributions, task completion metrics, and overdue task counters, scoped by organization and role.
 - **Redis Caching**: Cache-Aside implementation using Spring Cache and Jackson JSON serialization for dashboard metrics with organization and user-specific cache keys (`org:{orgId}:user:{userId}`) and user profiles (`userProfile`), with automatic cache eviction on data mutations.
@@ -29,7 +30,7 @@ The platform provides end-to-end management for sales leads, task workflows, org
 - **Scheduled Jobs**: Background schedulers for task follow-up reminder evaluation and transactional outbox event publishing.
 - **Observability**: Health checks and operational metrics via Spring Boot Actuator (`/actuator/health`, `/actuator/metrics`).
 - **Swagger/OpenAPI**: Interactive API documentation generated via SpringDoc OpenAPI 3.0 at `/swagger-ui/index.html`.
-- **React Frontend**: Modern single-page application built with React 19, Vite, Lucide React icons, Axios interceptors, and Toast notifications.
+- **React Frontend**: Modern single-page application built with React 19, Vite 8, Lucide React icons, Axios interceptors, and Toast notifications.
 
 ---
 
@@ -69,22 +70,23 @@ graph TD
 
 # Technology Stack
 
-| Technology | Purpose | Where Used |
-| :--- | :--- | :--- |
-| **Java 21** | Primary Programming Language | Entire Backend Application |
-| **Spring Boot 3.4.3** | Web & Application Framework | Dependency Injection, MVC, Actuator |
-| **Spring Security** | Authentication & Authorization | JWT Filter, RBAC, Security Rules |
-| **Spring Data JPA / Hibernate** | ORM & Relational Data Access | Repositories, Database Entities |
-| **PostgreSQL 18** | Primary Relational Database | Domain Tables, Outbox, Processed Events, Tokens |
-| **Redis 7** | Cache & In-Memory Store | Dashboard & Profile Caching, Rate Limiting, Locks |
-| **Apache Kafka 7.5** | Asynchronous Event Streaming | Event Bus, Decoupled Notification Triggers |
-| **React 19** | Frontend UI Framework | User Web Application (`frontend/`) |
-| **Vite 8** | Frontend Build Tool | React Dev Server & Production Bundling |
-| **Lucide React** | Iconography | Frontend Interface Components |
-| **Axios** | HTTP Client | API Communication & Interceptor Handling |
-| **SpringDoc OpenAPI 3.0** | API Documentation | Swagger UI & OpenAPI Schema Generation |
-| **Docker & Docker Compose** | Containerization | Environment Infrastructure Setup |
-| **Maven** | Build & Dependency Management | Backend Project Build |
+| Technology | Purpose | Where Used | Version |
+| :--- | :--- | :--- | :--- |
+| **Java** | Primary Programming Language | Entire Backend Application | `21` |
+| **Spring Boot** | Web & Application Framework | Dependency Injection, MVC, Actuator | `3.4.3` (Parent `4.1.0`) |
+| **Spring Security** | Authentication & Authorization | JWT Filter, RBAC, Security Rules | `6.4` |
+| **Spring Data JPA** | ORM & Relational Data Access | Repositories, Database Entities | `3.4` |
+| **PostgreSQL** | Primary Relational Database | Domain Tables, Outbox, Processed Events, Tokens | `18` (Alpine) |
+| **Redis** | Cache & In-Memory Store | Dashboard & Profile Caching, Rate Limiting, Locks | `7` (Alpine) |
+| **Apache Kafka** | Asynchronous Event Streaming | Event Bus, Decoupled Notification Triggers | `7.5.0` (Confluent Local) |
+| **React** | Frontend UI Framework | User Web Application (`frontend/`) | `19.2.8` |
+| **Vite** | Frontend Build Tool | React Dev Server & Production Bundling | `8.2.0` |
+| **Lucide React** | Iconography | Frontend Interface Components | `1.31.0` |
+| **Axios** | HTTP Client | API Communication & Interceptor Handling | `1.19.0` |
+| **SpringDoc OpenAPI** | API Documentation | Swagger UI & OpenAPI Schema Generation | `2.8.13` |
+| **jjwt** | JWT Token Parsing & Signing | Security Authentication Module | `0.12.7` |
+| **Docker & Docker Compose** | Containerization | Infrastructure Container Services | `v2+` |
+| **Maven** | Build & Dependency Management | Backend Project Build | `3.9+` |
 
 ---
 
@@ -130,7 +132,7 @@ HTTP Request
    ↓
 [PostgreSQL Database]
    ↓
-[Response Wrapper / ApiResponse<T>]
+[Response Wrapper / ApiResponse<T> or Raw DTO / Page<T>]
 ```
 
 ---
@@ -221,7 +223,8 @@ stateDiagram-v2
   - `IN_PROGRESS` → `PENDING` or `COMPLETED`
   - `COMPLETED` → `PENDING` (Reopen)
   - `COMPLETED` → `IN_PROGRESS` (Disallowed & rejected with HTTP 400 Bad Request)
-- **Priority Levels**: `LOW`, `MEDIUM`, `HIGH`, `URGENT`.
+- **Priority Levels**: `LOW`, `MEDIUM`, `HIGH`.
+
 - **Default Sorting**: Incomplete tasks (`PENDING`, `IN_PROGRESS`) appear first ordered by `dueDate ASC`. Completed tasks (`COMPLETED`) appear after ordered by `updatedAt DESC`.
 
 ---
@@ -377,8 +380,10 @@ Event consumer processing (`EventProcessingService.java`) guarantees idempotent 
 
 FlowCRM prevents N+1 query performance degradation using specific, verified query optimization techniques:
 
-1. **JPA Entity Graphs (`@EntityGraph`)**: Repositories explicitly specify `@EntityGraph(attributePaths = {"assignedTo"})` in `LeadRepository` and `@EntityGraph(attributePaths = {"lead", "assignedTo"})` in `TaskRepository`. This instructs Hibernate to load relationships in a single `LEFT OUTER JOIN` SQL query instead of issuing separate SELECT statements for each row.
-2. **SQL GROUP BY Aggregations**: Dashboard metrics avoid loading collections into memory by performing SQL aggregate counts directly in the database (`SELECT l.status, COUNT(l) FROM Lead l WHERE ... GROUP BY l.status`).
+### Specific N+1 Issue & Solution
+- **The Problem**: When retrieving paginated lists of leads or tasks, accessing lazy relations (such as `lead.getAssignedTo()` or `task.getLead()`) for each item in a page of N results would trigger N additional SELECT queries to the database (the N+1 query problem).
+- **Solution in FlowCRM**: In `LeadRepository.java` and `TaskRepository.java`, paginated list queries specify `@EntityGraph(attributePaths = {"assignedTo"})` and `@EntityGraph(attributePaths = {"lead", "assignedTo"})`. This instructs Hibernate to load the associated entities eagerly in a single SQL `LEFT OUTER JOIN` query, completely eliminating N+1 queries.
+- **SQL Aggregations**: Dashboard metric counters perform SQL `GROUP BY` aggregate counts directly in the database (`SELECT l.status, COUNT(l) FROM Lead l WHERE ... GROUP BY l.status`) instead of fetching entity collections into memory.
 
 ---
 
@@ -424,30 +429,32 @@ The Swagger UI is configured with Bearer Token JWT authentication support, allow
 
 # API Response Structure
 
-Write and mutation API endpoints wrap their success payloads in a standardized `ApiResponse<T>` structure:
+FlowCRM distinguishes between write/mutation operations and read/listing queries:
 
-### Success Response Example (`ApiResponse<T>`)
-```json
-{
-  "success": true,
-  "message": "Lead created successfully",
-  "data": {
-    "id": "c39e248a-6371-4770-8d1e-841961e66c1b",
-    "firstName": "Jane",
-    "lastName": "Doe",
-    "email": "jane.doe@example.com",
-    "phone": "+1234567890",
-    "company": "Acme Corp",
-    "status": "NEW",
-    "source": "WEBSITE",
-    "notes": "Interested in enterprise tier",
-    "assignedTo": "a81d4f21-7212-4c91-b3b2-9118c728e102",
-    "assignedToName": "John Sales",
-    "createdAt": "2026-08-15T00:00:00",
-    "updatedAt": "2026-08-15T00:00:00"
+- **Write / Mutation Endpoints** (Create Lead/Task, Update, Status Patch, Assignment, Auth Register/Login/Refresh, Notification Mark-Read) wrap their success payload in the standardized `ApiResponse<T>` wrapper:
+  ```json
+  {
+    "success": true,
+    "message": "Lead created successfully",
+    "data": {
+      "id": "c39e248a-6371-4770-8d1e-841961e66c1b",
+      "firstName": "Jane",
+      "lastName": "Doe",
+      "email": "jane.doe@example.com",
+      "phone": "+1234567890",
+      "company": "Acme Corp",
+      "status": "NEW",
+      "source": "WEBSITE",
+      "notes": "Interested in enterprise tier",
+      "assignedTo": "a81d4f21-7212-4c91-b3b2-9118c728e102",
+      "assignedToName": "John Sales",
+      "createdAt": "2026-08-15T00:00:00",
+      "updatedAt": "2026-08-15T00:00:00"
+    }
   }
-}
-```
+  ```
+
+- **Read / Listing Endpoints** (Get Leads/Tasks list, Get Lead/Task by ID, Get Notifications list, Get Dashboard Summary) return Spring Data `Page<T>`, `List<T>`, or domain DTOs directly without `ApiResponse<T>` wrapping.
 
 ---
 
@@ -462,9 +469,10 @@ erDiagram
     USER ||--o{ LEAD : assigned_to
     USER ||--o{ TASK : assigned_to
     USER ||--o{ REFRESH_TOKEN : owns
+    USER ||--o{ NOTIFICATION : receives
+    USER ||--o{ LEAD_ACTIVITY : performs
     LEAD ||--o{ TASK : has
     LEAD ||--o{ LEAD_ACTIVITY : logs
-    USER ||--o{ NOTIFICATION : receives
 
     ORGANIZATION {
         uuid id PK
@@ -476,7 +484,7 @@ erDiagram
         string first_name
         string last_name
         string email
-        string password
+        string password_hash
         string role
         boolean active
     }
@@ -497,6 +505,14 @@ erDiagram
         string source
         text notes
     }
+    LEAD_ACTIVITY {
+        uuid id PK
+        uuid lead_id FK
+        uuid performed_by FK
+        string type
+        text description
+        datetime created_at
+    }
     TASK {
         uuid id PK
         string title
@@ -505,6 +521,18 @@ erDiagram
         string priority
         datetime due_date
         boolean reminder_sent
+    }
+    NOTIFICATION {
+        uuid id PK
+        uuid user_id FK
+        uuid organization_id FK
+        string type
+        string title
+        text message
+        uuid reference_id
+        boolean is_read
+        json metadata
+        datetime created_at
     }
     OUTBOX_EVENTS {
         uuid id PK
@@ -518,6 +546,7 @@ erDiagram
         uuid event_id PK
         datetime processed_at
     }
+
 ```
 
 ---
@@ -736,8 +765,42 @@ Save Task in PostgreSQL ──► Evict Dashboard Cache in Redis ──► Retur
 
 # Learning / Architecture Concepts
 
-- **Transactional Outbox**: Solves data inconsistency by persisting events to a local DB table within the domain transaction before emitting to Kafka.
-- **Sliding-Window Rate Limiting**: Provides smooth, accurate rate limiting using Redis Sorted Sets (`ZSET`) and Lua scripts, preventing burst spikes.
-- **Distributed Locking**: Ensures that cron/scheduled jobs run on only one instance at a time in multi-instance deployments.
-- **Idempotent Message Processing**: Prevents duplicate event processing by recording processed message IDs in a relational table.
-- **Cache Invalidation**: Guarantees stale cache data is cleared immediately upon write mutations using Spring `@CacheEvict`.
+### 1. Transactional Outbox Pattern
+- **WHY**: Avoids dual-write inconsistencies where saving data to PostgreSQL succeeds but publishing to Kafka fails.
+- **HOW**: Writes domain entities and `OutboxEvent` records within the same DB transaction. `OutboxPoller` polls `outbox_events` every 5s and dispatches to Kafka topics.
+
+### 2. Kafka / Event-Driven Processing
+- **WHY**: Decouples domain event handling and heavy side effects (such as creating notifications) from HTTP request-response cycles.
+- **HOW**: Controllers emit events to Kafka topics (`leads.events`, `tasks.events`). `LeadEventConsumer` and `TaskEventConsumer` process events asynchronously.
+
+### 3. Idempotent Consumer Processing
+- **WHY**: Kafka delivers messages with at-least-once delivery; network retries can deliver duplicate event messages.
+- **HOW**: `EventProcessingService` checks PostgreSQL `processed_events` table before executing side-effects (`processedEventRepository.existsById(eventId)`), ignoring duplicates.
+
+### 4. Redis Caching (Cache-Aside)
+- **WHY**: Reduces database CPU and memory load for frequently requested dashboard analytical counts and user profiles.
+- **HOW**: Implements Spring Cache `@Cacheable("dashboard")` (`org:{orgId}:user:{userId}`, TTL 60s) and `@Cacheable("userProfile")` (TTL 10m), evicted via `@CacheEvict` on data writes.
+
+### 5. Sliding-Window Rate Limiting
+- **WHY**: Protects REST API endpoints against brute-force login attempts and denial-of-service request spikes.
+- **HOW**: `RateLimiterInterceptor` executes atomic Redis Lua scripts on Sorted Sets (`ZSET`), returning HTTP 429 with a `Retry-After` header when limit is exceeded.
+
+### 6. Redis Distributed Locking
+- **WHY**: Prevents multiple backend instances in a clustered deployment from running duplicate scheduled background jobs simultaneously.
+- **HOW**: `TaskFollowUpScheduler` acquires lock `lock:follow-up-reminder` via `RedisDistributedLockService` using Redis `opsForValue().setIfAbsent` (SET NX EX, 120s TTL) and atomic Lua release.
+
+### 7. N+1 Query Prevention
+- **WHY**: Lazy loading entity relations (`assignedTo`, `lead`) during paginated listing queries issues N additional SQL SELECT queries for a page of N records.
+- **HOW**: Repositories specify JPA `@EntityGraph(attributePaths = ...)` to fetch associations in a single SQL `LEFT OUTER JOIN`. Dashboard counters use SQL `GROUP BY` aggregations.
+
+### 8. Database Indexing
+- **WHY**: Prevents full table scans on large tables when filtering or querying by foreign keys, status, and due dates.
+- **HOW**: Defines explicit JPA `@Index` annotations on columns (`assigned_to`, `status`, `due_date`, `lead_id`, `organization_id`).
+
+### 9. Multi-Tenancy (Logical Organization Scoping)
+- **WHY**: Guarantees strict data isolation between separate customer organizations sharing the same database infrastructure.
+- **HOW**: `UserContext` extracts `organizationId` from the authenticated JWT on every request; service and repository queries enforce `WHERE organization_id = :orgId`.
+
+### 10. Role-Based Access Control (RBAC)
+- **WHY**: Restricts organization administrative privileges to Admins while scoping Sales Reps to their explicitly assigned workload.
+- **HOW**: Spring Security `@EnableMethodSecurity` and URL matchers enforce authority rules for `ROLE_ADMIN` vs `ROLE_SALES_REP`.
