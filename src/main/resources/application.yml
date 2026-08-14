@@ -1,0 +1,100 @@
+spring:
+  application:
+    name: flowcrm
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/flowcrm-db}
+    username: ${DB_USER:rakshit}
+    password: ${DB_PASS:password}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:false}
+  jpa:
+    hibernate:
+      ddl-auto: ${DDL_AUTO:update}
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKERS:localhost:29092}
+    properties:
+      security.protocol: ${KAFKA_SECURITY_PROTOCOL:PLAINTEXT}
+      sasl.mechanism: ${KAFKA_SASL_MECHANISM:PLAIN}
+      sasl.jaas.config: ${KAFKA_SASL_JAAS_CONFIG:}
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+        retries: 3
+        spring.json.add.type.headers: false
+    consumer:
+      group-id: flowcrm-monolith
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.flowcrm.*"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: com.flowcrm.kafka.dto.EventEnvelope
+
+jwt:
+  secret-key: ${JWT_SECRET_KEY:dont-use-in-prod-a9asd7fulasjdfaklsdfu98q3uhjdiosh897as9d8f7ua9osufdjilasdjf}
+  access-token-expiration-ms: 86400000 # 24 hours in ms
+  refresh-token-expiration-ms: 604800000 # 7 days in ms
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+  cache:
+    dashboard:
+      ttl: ${DASHBOARD_CACHE_TTL:60s}
+
+  follow-up:
+    polling:
+      fixed-delay: 60000
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    method: ${RATE_LIMIT_METHOD:sliding-lua}
+    requests-per-minute: ${RATE_LIMIT_REQUESTS_PER_MINUTE:60}
+  kafka:
+    topics:
+      lead: leads.events
+      task: tasks.events
+
+outbox:
+  polling:
+    fixed-delay: 5000
+  retry:
+    max-attempts: 3
+
+kafka:
+  consumer:
+    retry:
+      max-attempts: 3
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+  health:
+    db:
+      enabled: true
+    redis:
+      enabled: true
+    defaults:
+      enabled: true
+
+
+
