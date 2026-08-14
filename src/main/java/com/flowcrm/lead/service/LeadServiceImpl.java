@@ -1,6 +1,11 @@
 package com.flowcrm.lead.service;
 
 import com.flowcrm.auth.entity.User;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+
+
 import com.flowcrm.auth.repository.UserRepository;
 import com.flowcrm.common.enums.ActivityType;
 import com.flowcrm.common.enums.LeadStatus;
@@ -99,9 +104,16 @@ public class LeadServiceImpl implements LeadService {
             assignedTo = currentUser.getId();
         }
 
+        if (pageable == null || pageable.getSort().isUnsorted()) {
+            int pageNumber = pageable != null ? pageable.getPageNumber() : 0;
+            int pageSize = pageable != null ? pageable.getPageSize() : 20;
+            pageable = PageRequest.of(pageNumber, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+        }
+
         Specification<Lead> spec = LeadSpecification.filterLeads(organizationId, status, assignedTo, search);
         Page<Lead> leadsPage = leadRepository.findAll(spec, pageable);
         return leadsPage.map(this::mapToLeadResponse);
+
     }
 
     @Override

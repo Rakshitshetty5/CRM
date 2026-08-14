@@ -1,6 +1,7 @@
 package com.flowcrm.lead.controller;
 
 import com.flowcrm.common.enums.LeadStatus;
+import com.flowcrm.common.response.ApiResponse;
 import com.flowcrm.lead.dto.CreateLeadRequest;
 import com.flowcrm.lead.dto.LeadActivityResponse;
 import com.flowcrm.lead.dto.LeadAssignmentRequest;
@@ -10,7 +11,6 @@ import com.flowcrm.lead.dto.UpdateLeadStatusRequest;
 import com.flowcrm.lead.service.LeadService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -43,20 +43,21 @@ public class LeadController {
 
     @Operation(summary = "Create lead", description = "Creates a new lead within the organization")
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Lead created successfully"),
-            @ApiResponse(responseCode = "400", description = "Invalid request payload"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Lead created successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request payload"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
     })
     @PostMapping
-    public ResponseEntity<LeadResponse> createLead(@Valid @RequestBody CreateLeadRequest request) {
+    public ResponseEntity<ApiResponse<LeadResponse>> createLead(@Valid @RequestBody CreateLeadRequest request) {
         LeadResponse response = leadService.createLead(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Lead created successfully", response));
     }
 
     @Operation(summary = "Get leads", description = "Retrieves a paged, filtered list of leads within the organization")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Leads retrieved successfully"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Leads retrieved successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
     })
     @GetMapping
     public ResponseEntity<Page<LeadResponse>> getLeads(
@@ -71,11 +72,13 @@ public class LeadController {
         return ResponseEntity.ok(response);
     }
 
+
+
     @Operation(summary = "Get lead by ID", description = "Retrieves a lead by ID within the organization")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Lead retrieved successfully"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
-            @ApiResponse(responseCode = "404", description = "Lead not found")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Lead retrieved successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Lead not found")
     })
     @GetMapping("/{leadId}")
     public ResponseEntity<LeadResponse> getLeadById(@Parameter(description = "UUID of the lead") @PathVariable UUID leadId) {
@@ -85,43 +88,43 @@ public class LeadController {
 
     @Operation(summary = "Update lead", description = "Updates an existing lead details")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Lead updated successfully"),
-            @ApiResponse(responseCode = "400", description = "Invalid request payload"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
-            @ApiResponse(responseCode = "403", description = "Forbidden"),
-            @ApiResponse(responseCode = "404", description = "Lead not found")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Lead updated successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request payload"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Lead not found")
     })
     @PutMapping("/{leadId}")
-    public ResponseEntity<LeadResponse> updateLead(
+    public ResponseEntity<ApiResponse<LeadResponse>> updateLead(
             @Parameter(description = "UUID of the lead") @PathVariable UUID leadId,
             @Valid @RequestBody UpdateLeadRequest request
     ) {
         LeadResponse response = leadService.updateLead(leadId, request);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success("Lead updated successfully", response));
     }
 
     @Operation(summary = "Update lead status", description = "Updates the status of a lead and logs status change activity")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Lead status updated successfully"),
-            @ApiResponse(responseCode = "400", description = "Invalid request payload"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
-            @ApiResponse(responseCode = "403", description = "Forbidden"),
-            @ApiResponse(responseCode = "404", description = "Lead not found")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Lead status updated successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request payload"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Lead not found")
     })
     @PatchMapping("/{leadId}/status")
-    public ResponseEntity<LeadResponse> updateLeadStatus(
+    public ResponseEntity<ApiResponse<LeadResponse>> updateLeadStatus(
             @Parameter(description = "UUID of the lead") @PathVariable UUID leadId,
             @Valid @RequestBody UpdateLeadStatusRequest request
     ) {
         LeadResponse response = leadService.updateLeadStatus(leadId, request);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success("Lead status updated successfully", response));
     }
 
     @Operation(summary = "Get lead activities", description = "Retrieves activity audit trail for a lead")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Lead activities retrieved successfully"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
-            @ApiResponse(responseCode = "404", description = "Lead not found")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Lead activities retrieved successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Lead not found")
     })
     @GetMapping("/{leadId}/activities")
     public ResponseEntity<List<LeadActivityResponse>> getLeadActivities(@Parameter(description = "UUID of the lead") @PathVariable UUID leadId) {
@@ -131,20 +134,18 @@ public class LeadController {
 
     @Operation(summary = "Assign lead", description = "Assigns a lead to a user and emits a LeadAssigned event")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Lead assigned successfully"),
-            @ApiResponse(responseCode = "400", description = "Invalid request payload"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
-            @ApiResponse(responseCode = "403", description = "Forbidden - Admin access required"),
-            @ApiResponse(responseCode = "404", description = "Lead or user not found")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Lead assigned successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request payload"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Admin access required"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Lead or user not found")
     })
     @PatchMapping("/{leadId}/assignment")
-    public ResponseEntity<LeadResponse> assignLead(
+    public ResponseEntity<ApiResponse<LeadResponse>> assignLead(
             @Parameter(description = "UUID of the lead") @PathVariable UUID leadId,
             @Valid @RequestBody LeadAssignmentRequest request
     ) {
         LeadResponse response = leadService.assignLead(leadId, request);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success("Lead assigned successfully", response));
     }
 }
-
-

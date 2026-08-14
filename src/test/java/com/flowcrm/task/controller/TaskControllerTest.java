@@ -81,11 +81,13 @@ class TaskControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(taskId.toString()))
-                .andExpect(jsonPath("$.leadName").value("Acme Lead"))
-                .andExpect(jsonPath("$.assignedToName").value("Sales Rep"))
-                .andExpect(jsonPath("$.status").value("PENDING"))
-                .andExpect(jsonPath("$.priority").value("HIGH"));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Task created successfully"))
+                .andExpect(jsonPath("$.data.id").value(taskId.toString()))
+                .andExpect(jsonPath("$.data.leadName").value("Acme Lead"))
+                .andExpect(jsonPath("$.data.assignedToName").value("Sales Rep"))
+                .andExpect(jsonPath("$.data.status").value("PENDING"))
+                .andExpect(jsonPath("$.data.priority").value("HIGH"));
     }
 
     @Test
@@ -163,8 +165,10 @@ class TaskControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.title").value("Updated title"))
-                .andExpect(jsonPath("$.priority").value("MEDIUM"));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Task updated successfully"))
+                .andExpect(jsonPath("$.data.title").value("Updated title"))
+                .andExpect(jsonPath("$.data.priority").value("MEDIUM"));
     }
 
     @Test
@@ -182,13 +186,15 @@ class TaskControllerTest {
                 leadId, "Acme Lead", userId, "Sales Rep", userId, LocalDateTime.now(), LocalDateTime.now()
         );
 
-
         when(taskService.updateTaskStatus(eq(taskId), any(UpdateTaskStatusRequest.class))).thenReturn(response);
 
         mockMvc.perform(patch("/api/v1/tasks/{taskId}/status", taskId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("COMPLETED"));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Task status updated successfully"))
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
     }
+
 }

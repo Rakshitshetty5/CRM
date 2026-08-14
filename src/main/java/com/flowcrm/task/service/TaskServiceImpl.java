@@ -96,8 +96,11 @@ public class TaskServiceImpl implements TaskService {
         UUID organizationId = currentUser.getOrganization().getId();
         boolean isAdmin = currentUser.getRole() == Role.ADMIN;
 
-        Specification<Task> spec = TaskSpecification.filterTasks(organizationId, currentUser.getId(), isAdmin, status, priority, assignedTo, leadId);
+        boolean isUnsorted = pageable == null || pageable.getSort().isUnsorted();
+
+        Specification<Task> spec = TaskSpecification.filterTasks(organizationId, currentUser.getId(), isAdmin, status, priority, assignedTo, leadId, isUnsorted);
         return taskRepository.findAll(spec, pageable).map(this::mapToTaskResponse);
+
     }
 
     @Override
@@ -172,7 +175,10 @@ public class TaskServiceImpl implements TaskService {
             return mapToTaskResponse(task);
         }
 
+        validateTaskStatusTransition(oldStatus, newStatus);
+
         task.setStatus(newStatus);
+
         Task updatedTask = taskRepository.save(task);
 
         if (newStatus == TaskStatus.COMPLETED) {
@@ -274,6 +280,15 @@ public class TaskServiceImpl implements TaskService {
                 task.getCreatedAt(),
                 task.getUpdatedAt()
         );
+    }
+
+    private void validateTaskStatusTransition(TaskStatus oldStatus, TaskStatus newStatus) {
+        if (oldStatus == TaskStatus.COMPLETED && newStatus == TaskStatus.IN_PROGRESS) {
+            throw new IllegalArgumentException("Invalid status transition from COMPLETED to IN_PROGRESS");
+        }
+        if (oldStatus == TaskStatus.COMPLETED && newStatus != TaskStatus.PENDING) {
+            throw new IllegalArgumentException("Invalid status transition from " + oldStatus + " to " + newStatus);
+        }
     }
 
 }

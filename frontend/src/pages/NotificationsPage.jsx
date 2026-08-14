@@ -15,7 +15,8 @@ export const NotificationsPage = () => {
     setLoading(true);
     try {
       const data = await notificationApi.getNotifications({ page: 0, size: 50 });
-      setNotifications(data.content || []);
+      const notifsList = Array.isArray(data) ? data : (data?.content || data?.data?.content || data?.data || []);
+      setNotifications(notifsList);
     } catch (err) {
       console.error('Failed to fetch notifications:', err);
       setError('Failed to load notifications');
@@ -31,7 +32,7 @@ export const NotificationsPage = () => {
         prev.map(n => n.id === id ? { ...n, isRead: true } : n)
       );
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to mark notification as read');
+      console.error('Failed to mark notification as read:', err);
     }
   };
 
@@ -51,58 +52,127 @@ export const NotificationsPage = () => {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {notifications.map((n) => (
-            <div
-              key={n.id}
-              style={{
-                backgroundColor: n.isRead ? 'var(--bg-card)' : '#1e293b',
-                border: '1px solid var(--border-color)',
-                borderLeft: n.isRead ? '1px solid var(--border-color)' : '4px solid var(--primary)',
-                borderRadius: 'var(--radius)',
-                padding: '1.25rem',
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                gap: '1rem'
-              }}
-            >
-              <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-                <div
-                  style={{
-                    padding: '0.6rem',
-                    borderRadius: '50%',
-                    backgroundColor: n.isRead ? 'rgba(148, 163, 184, 0.1)' : 'rgba(59, 130, 246, 0.15)',
-                    color: n.isRead ? 'var(--text-muted)' : 'var(--primary)',
-                    marginTop: '0.2rem'
-                  }}
-                >
-                  <Bell size={20} />
-                </div>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: '1rem', marginBottom: '0.25rem' }}>
-                    {n.title}
-                  </div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-                    {n.message}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                    Type: <span className="badge badge-new" style={{ fontSize: '0.7rem' }}>{n.type}</span> • {new Date(n.createdAt).toLocaleString()}
-                  </div>
-                </div>
-              </div>
+          {notifications.map((n) => {
+            const meta = n.metadata || {};
+            const itemTitle = meta.taskTitle
+              ? `${n.title}: ${meta.taskTitle}`
+              : meta.leadName
+              ? `${n.title}: ${meta.leadName}`
+              : n.title;
 
-              {!n.isRead && (
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => handleMarkAsRead(n.id)}
-                  title="Mark as read"
-                >
-                  <CheckCircle size={14} />
-                  <span>Mark Read</span>
-                </button>
-              )}
-            </div>
-          ))}
+            const itemDescription = meta.taskDescription || meta.leadDescription || n.message;
+
+            const hasDetails = Boolean(meta.leadName || meta.taskTitle || meta.stage);
+
+            return (
+              <div
+                key={n.id}
+                style={{
+                  backgroundColor: n.isRead ? 'var(--bg-surface)' : '#0f172a',
+                  border: '1px solid var(--border-color)',
+                  borderLeft: n.isRead ? '1px solid var(--border-color)' : '4px solid var(--primary)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '1.25rem',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  gap: '1rem',
+                  boxShadow: 'var(--shadow-sm)',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', flex: 1 }}>
+                  <div
+                    style={{
+                      padding: '0.6rem',
+                      borderRadius: '50%',
+                      backgroundColor: n.isRead ? 'var(--bg-secondary)' : 'rgba(37, 99, 235, 0.25)',
+                      color: n.isRead ? 'var(--text-muted)' : '#60a5fa',
+                      marginTop: '0.2rem'
+                    }}
+                  >
+                    <Bell size={20} />
+                  </div>
+
+                  <div style={{ flex: 1 }}>
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        fontSize: '1rem',
+                        marginBottom: '0.35rem',
+                        color: n.isRead ? 'var(--text-main)' : '#ffffff'
+                      }}
+                    >
+                      {itemTitle}
+                    </div>
+
+                    <div
+                      style={{
+                        color: n.isRead ? 'var(--text-secondary)' : '#e2e8f0',
+                        fontSize: '0.875rem',
+                        marginBottom: '0.75rem',
+                        lineHeight: 1.5
+                      }}
+                    >
+                      {itemDescription}
+                    </div>
+
+                    {/* Human-readable metadata details block without raw IDs */}
+                    {hasDetails && (
+                      <div
+                        style={{
+                          backgroundColor: n.isRead ? 'var(--bg-page)' : 'rgba(255, 255, 255, 0.07)',
+                          border: `1px solid ${n.isRead ? 'var(--border-color)' : 'rgba(255, 255, 255, 0.12)'}`,
+                          borderRadius: 'var(--radius)',
+                          padding: '0.75rem 1rem',
+                          marginBottom: '0.75rem',
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                          gap: '0.5rem 1rem',
+                          fontSize: '0.8125rem'
+                        }}
+                      >
+                        {meta.leadName && (
+                          <div>
+                            <span style={{ color: n.isRead ? 'var(--text-muted)' : '#94a3b8' }}>Lead Name: </span>
+                            <strong style={{ color: n.isRead ? 'var(--text-main)' : '#ffffff' }}>{meta.leadName}</strong>
+                          </div>
+                        )}
+                        {meta.taskTitle && (
+                          <div>
+                            <span style={{ color: n.isRead ? 'var(--text-muted)' : '#94a3b8' }}>Task Title: </span>
+                            <strong style={{ color: n.isRead ? 'var(--text-main)' : '#ffffff' }}>{meta.taskTitle}</strong>
+                          </div>
+                        )}
+                        {meta.stage && (
+                          <div>
+                            <span style={{ color: n.isRead ? 'var(--text-muted)' : '#94a3b8' }}>Stage: </span>
+                            <span className="badge badge-qualified" style={{ fontSize: '0.7rem' }}>{meta.stage}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div style={{ fontSize: '0.75rem', color: n.isRead ? 'var(--text-muted)' : '#94a3b8' }}>
+                      Type: <span className="badge badge-new" style={{ fontSize: '0.7rem' }}>{n.type}</span> • {new Date(n.createdAt).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+
+                {!n.isRead && (
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={() => handleMarkAsRead(n.id)}
+                    title="Mark as read"
+                    style={{ flexShrink: 0 }}
+                  >
+                    <CheckCircle size={14} />
+                    <span>Mark Read</span>
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

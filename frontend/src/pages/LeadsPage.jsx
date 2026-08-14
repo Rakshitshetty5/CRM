@@ -46,7 +46,8 @@ export const LeadsPage = () => {
       if (search) params.search = search;
       if (statusFilter) params.status = statusFilter;
       const data = await leadApi.getLeads(params);
-      setLeads(data.content || []);
+      const leadsList = Array.isArray(data) ? data : (data?.content || data?.data?.content || data?.data || []);
+      setLeads(leadsList);
     } catch (err) {
       console.error('Failed to fetch leads:', err);
       setError('Failed to load leads');
@@ -58,12 +59,12 @@ export const LeadsPage = () => {
   const fetchUsers = async () => {
     try {
       const data = await userApi.getUsers({ role: 'SALES_REP', active: true, size: 100 });
-      setUsers(data.content || []);
+      const usersList = Array.isArray(data) ? data : (data?.content || data?.data?.content || data?.data || []);
+      setUsers(usersList);
     } catch (err) {
       console.error('Failed to fetch users:', err);
     }
   };
-
 
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
@@ -71,21 +72,21 @@ export const LeadsPage = () => {
       await leadApi.createLead(newLead);
       setShowCreateModal(false);
       setNewLead({ firstName: '', lastName: '', email: '', phone: '', company: '', source: 'WEBSITE', notes: '' });
-      fetchLeads();
+      await fetchLeads();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to create lead');
+      console.error('Failed to create lead:', err);
     }
   };
 
   const handleStatusChange = async (leadId, newStatus) => {
     try {
       await leadApi.updateLeadStatus(leadId, newStatus);
-      fetchLeads();
+      await fetchLeads();
       if (selectedLead && selectedLead.id === leadId) {
         openDetailModal({ ...selectedLead, status: newStatus });
       }
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update lead status');
+      console.error('Failed to update lead status:', err);
     }
   };
 
@@ -95,11 +96,13 @@ export const LeadsPage = () => {
     try {
       await leadApi.assignLead(selectedLead.id, assigneeId);
       setShowAssignModal(false);
-      fetchLeads();
+      await fetchLeads();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to assign lead');
+      console.error('Failed to assign lead:', err);
     }
   };
+
+
 
   const openDetailModal = async (lead) => {
     setSelectedLead(lead);
@@ -134,13 +137,12 @@ export const LeadsPage = () => {
       </div>
 
       {/* Filters Bar */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
-          <Search size={18} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
+      <div className="filter-bar">
+        <div className="search-input-container">
+          <Search size={18} className="search-icon" />
           <input
             type="text"
-            className="form-input"
-            style={{ paddingLeft: '2.5rem', width: '100%' }}
+            className="form-input search-input"
             placeholder="Search name, email, or company..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -148,7 +150,7 @@ export const LeadsPage = () => {
         </div>
 
         <select
-          className="form-select"
+          className="form-select filter-select"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
         >
@@ -163,6 +165,7 @@ export const LeadsPage = () => {
           <option value="LOST">Lost</option>
         </select>
       </div>
+
 
       {loading ? (
         <div style={{ color: 'var(--text-muted)' }}>Loading leads...</div>
@@ -257,8 +260,19 @@ export const LeadsPage = () => {
               </div>
               <div className="form-group">
                 <label className="form-label">Source</label>
-                <input type="text" className="form-input" value={newLead.source} onChange={(e) => setNewLead({ ...newLead, source: e.target.value })} />
+                <select
+                  className="form-select"
+                  value={newLead.source}
+                  onChange={(e) => setNewLead({ ...newLead, source: e.target.value })}
+                >
+                  <option value="WEBSITE">Website</option>
+                  <option value="REFERRAL">Referral</option>
+                  <option value="EMAIL">Email</option>
+                  <option value="SOCIAL_MEDIA">Social Media</option>
+                  <option value="MANUAL">Manual</option>
+                </select>
               </div>
+
               <div className="form-group">
                 <label className="form-label">Notes</label>
                 <textarea className="form-textarea" rows="3" value={newLead.notes} onChange={(e) => setNewLead({ ...newLead, notes: e.target.value })}></textarea>

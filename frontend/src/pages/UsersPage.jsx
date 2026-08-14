@@ -25,7 +25,8 @@ export const UsersPage = () => {
     setLoading(true);
     try {
       const data = await userApi.getUsers({ size: 100 });
-      setUsers(data.content || []);
+      const usersList = Array.isArray(data) ? data : (data?.content || data?.data?.content || data?.data || []);
+      setUsers(usersList);
     } catch (err) {
       console.error('Failed to fetch users:', err);
       setError('Failed to load users');
@@ -40,20 +41,22 @@ export const UsersPage = () => {
       await userApi.createUser(newUser);
       setShowCreateModal(false);
       setNewUser({ firstName: '', lastName: '', email: '', password: '', role: 'SALES_REP' });
-      fetchUsers();
+      await fetchUsers();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to create user');
+      console.error('Failed to create user:', err);
     }
   };
 
   const handleStatusToggle = async (userId, currentStatus) => {
     try {
       await userApi.updateUserStatus(userId, !currentStatus);
-      fetchUsers();
+      await fetchUsers();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update user status');
+      console.error('Failed to update user status:', err);
     }
   };
+
+
 
   return (
     <div>

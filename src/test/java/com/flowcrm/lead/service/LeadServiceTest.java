@@ -148,7 +148,8 @@ class LeadServiceTest {
         Page<Lead> leadPage = new PageImpl<>(List.of(testLead), pageable, 1);
 
         when(userRepository.findById(authUser.getId())).thenReturn(Optional.of(authUser));
-        when(leadRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(leadPage);
+        when(leadRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(leadPage);
+
 
         Page<LeadResponse> result = leadService.getLeads(LeadStatus.NEW, authUser.getId(), "rahul", pageable);
 

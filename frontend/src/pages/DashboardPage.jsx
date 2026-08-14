@@ -40,55 +40,54 @@ export const DashboardPage = () => {
 
       <div className="stats-grid">
         <div className="stat-card">
-          <div className="stat-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Users size={18} color="var(--primary)" />
-            Total Leads
+          <div className="stat-title">
+            <Users size={16} color="var(--primary)" />
+            <span>Total Leads</span>
           </div>
           <div className="stat-value">{summary?.totalLeads ?? 0}</div>
         </div>
 
         <div className="stat-card">
-          <div className="stat-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <CheckSquare size={18} color="var(--purple)" />
-            Total Tasks
+          <div className="stat-title">
+            <CheckSquare size={16} color="var(--purple)" />
+            <span>Total Tasks</span>
           </div>
           <div className="stat-value">{summary?.totalTasks ?? 0}</div>
         </div>
 
         <div className="stat-card">
-          <div className="stat-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Clock size={18} color="var(--warning)" />
-            Pending Tasks
+          <div className="stat-title">
+            <Clock size={16} color="var(--warning)" />
+            <span>Pending Tasks</span>
           </div>
-          <div className="stat-value" style={{ color: 'var(--warning)' }}>{summary?.pendingTasks ?? 0}</div>
+          <div className="stat-value">{summary?.pendingTasks ?? 0}</div>
         </div>
 
         <div className="stat-card">
-          <div className="stat-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <CheckCircle size={18} color="var(--success)" />
-            Completed Tasks
+          <div className="stat-title">
+            <CheckCircle size={16} color="var(--success)" />
+            <span>Completed Tasks</span>
           </div>
-          <div className="stat-value" style={{ color: 'var(--success)' }}>{summary?.completedTasks ?? 0}</div>
+          <div className="stat-value">{summary?.completedTasks ?? 0}</div>
         </div>
 
         <div className="stat-card">
-          <div className="stat-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <AlertTriangle size={18} color="var(--danger)" />
-            Overdue Tasks
+          <div className="stat-title">
+            <AlertTriangle size={16} color="var(--danger)" />
+            <span>Overdue Tasks</span>
           </div>
-          <div className="stat-value" style={{ color: 'var(--danger)' }}>{summary?.overdueTasks ?? 0}</div>
+          <div className="stat-value">{summary?.overdueTasks ?? 0}</div>
         </div>
-
       </div>
 
-      <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1rem', marginTop: '2rem' }}>
-        Leads Distribution by Stage
+      <h2 style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '1rem', marginTop: '2rem' }}>
+        Leads Pipeline Stage Breakdown
       </h2>
 
       <div className="stats-grid">
         {Object.entries(leadsByStatus).length > 0 ? (
           Object.entries(leadsByStatus).map(([status, count]) => (
-            <div className="stat-card" key={status} style={{ borderLeft: '4px solid var(--primary)' }}>
+            <div className="stat-card" key={status}>
               <div className="stat-title">{status.replace('_', ' ')}</div>
               <div className="stat-value" style={{ fontSize: '1.5rem' }}>{count}</div>
             </div>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { User, Shield, Building, Mail, Calendar } from 'lucide-react';
+import { Shield, Building, Mail, Calendar } from 'lucide-react';
 
 export const ProfilePage = () => {
   const { user } = useAuth();
@@ -17,12 +17,12 @@ export const ProfilePage = () => {
 
       <div className="stat-card" style={{ maxWidth: '600px', padding: '2rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '2rem' }}>
-          <div className="user-avatar" style={{ width: '64px', height: '64px', fontSize: '1.5rem' }}>
+          <div className="user-avatar" style={{ width: '60px', height: '60px', fontSize: '1.375rem' }}>
             {user.firstName ? user.firstName[0].toUpperCase() : 'U'}
             {user.lastName ? user.lastName[0].toUpperCase() : ''}
           </div>
           <div>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 700 }}>
+            <h2 style={{ fontSize: '1.375rem', fontWeight: 600, color: 'var(--text-main)' }}>
               {user.firstName} {user.lastName}
             </h2>
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.4rem' }}>
@@ -39,7 +39,7 @@ export const ProfilePage = () => {
             <Mail size={18} color="var(--primary)" />
             <div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Email Address</div>
-              <div style={{ fontWeight: 500 }}>{user.email}</div>
+              <div style={{ fontWeight: 500, color: 'var(--text-main)' }}>{user.email}</div>
             </div>
           </div>
 
@@ -47,16 +47,15 @@ export const ProfilePage = () => {
             <Building size={18} color="var(--purple)" />
             <div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Organization</div>
-              <div style={{ fontWeight: 500 }}>{user.organizationName || user.organizationId}</div>
+              <div style={{ fontWeight: 500, color: 'var(--text-main)' }}>{user.organizationName || user.organizationId}</div>
             </div>
           </div>
-
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <Shield size={18} color="var(--warning)" />
             <div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Account ID</div>
-              <div style={{ fontWeight: 500, fontSize: '0.85rem' }}>{user.id}</div>
+              <div style={{ fontWeight: 500, fontSize: '0.85rem', color: 'var(--text-main)' }}>{user.id}</div>
             </div>
           </div>
 
@@ -65,7 +64,7 @@ export const ProfilePage = () => {
               <Calendar size={18} color="var(--success)" />
               <div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Member Since</div>
-                <div style={{ fontWeight: 500 }}>{new Date(user.createdAt).toLocaleDateString()}</div>
+                <div style={{ fontWeight: 500, color: 'var(--text-main)' }}>{new Date(user.createdAt).toLocaleDateString()}</div>
               </div>
             </div>
           )}

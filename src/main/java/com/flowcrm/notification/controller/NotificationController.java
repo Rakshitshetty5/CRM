@@ -1,10 +1,10 @@
 package com.flowcrm.notification.controller;
 
+import com.flowcrm.common.response.ApiResponse;
 import com.flowcrm.notification.dto.NotificationResponse;
 import com.flowcrm.notification.service.NotificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -27,13 +27,12 @@ import java.util.UUID;
 @Tag(name = "Notifications", description = "User notification management APIs")
 public class NotificationController {
 
-
     private final NotificationService notificationService;
 
     @Operation(summary = "Get user notifications", description = "Retrieves a paged list of notifications for the authenticated user")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Notifications retrieved successfully"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Notifications retrieved successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
     })
     @GetMapping
     public ResponseEntity<Page<NotificationResponse>> getNotifications(
@@ -47,14 +46,13 @@ public class NotificationController {
 
     @Operation(summary = "Mark notification as read", description = "Marks a specific notification as read for the authenticated user")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Notification marked as read successfully"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
-            @ApiResponse(responseCode = "404", description = "Notification not found")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Notification marked as read successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Notification not found")
     })
     @PatchMapping("/{id}/read")
-    public ResponseEntity<NotificationResponse> markAsRead(@Parameter(description = "UUID of the notification") @PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<NotificationResponse>> markAsRead(@Parameter(description = "UUID of the notification") @PathVariable UUID id) {
         NotificationResponse response = notificationService.markAsRead(id);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success("Notification marked as read successfully", response));
     }
 }
-

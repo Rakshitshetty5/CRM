@@ -64,11 +64,13 @@ class NotificationControllerTest {
 
         when(notificationService.markAsRead(notificationId)).thenReturn(responseDto);
 
-        ResponseEntity<NotificationResponse> responseEntity = notificationController.markAsRead(notificationId);
+        ResponseEntity<com.flowcrm.common.response.ApiResponse<NotificationResponse>> responseEntity = notificationController.markAsRead(notificationId);
 
         assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
         assertNotNull(responseEntity.getBody());
-        assertTrue(responseEntity.getBody().isRead());
+        assertTrue(responseEntity.getBody().success());
+        assertTrue(responseEntity.getBody().data().isRead());
         verify(notificationService, times(1)).markAsRead(notificationId);
     }
+
 }

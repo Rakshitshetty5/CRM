@@ -15,15 +15,13 @@ export const Header = () => {
     <header className="header">
       <div className="org-badge">
         <span>Organization:</span>
-        <strong style={{ color: '#1d4ed8' }}>{user?.organizationName || user?.organizationId || 'Default Organization'}</strong>
+        <strong>{user?.organizationName || user?.organizationId || 'Default Organization'}</strong>
       </div>
-
-
 
       <div className="header-user">
         <div className="user-avatar">{getInitials()}</div>
         <div>
-          <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+          <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-main)' }}>
             {user ? `${user.firstName} ${user.lastName}` : 'User'}
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>

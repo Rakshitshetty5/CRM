@@ -77,10 +77,12 @@ class LeadControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(leadId.toString()))
-                .andExpect(jsonPath("$.firstName").value("Rahul"))
-                .andExpect(jsonPath("$.assignedToName").value("Sales Rep"))
-                .andExpect(jsonPath("$.status").value("NEW"));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Lead created successfully"))
+                .andExpect(jsonPath("$.data.id").value(leadId.toString()))
+                .andExpect(jsonPath("$.data.firstName").value("Rahul"))
+                .andExpect(jsonPath("$.data.assignedToName").value("Sales Rep"))
+                .andExpect(jsonPath("$.data.status").value("NEW"));
     }
 
     @Test
@@ -152,8 +154,10 @@ class LeadControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.company").value("ABC Tech Updated"))
-                .andExpect(jsonPath("$.source").value("REFERRAL"));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Lead updated successfully"))
+                .andExpect(jsonPath("$.data.company").value("ABC Tech Updated"))
+                .andExpect(jsonPath("$.data.source").value("REFERRAL"));
     }
 
     @Test
@@ -169,15 +173,17 @@ class LeadControllerTest {
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
-
         when(leadService.updateLeadStatus(eq(leadId), any(UpdateLeadStatusRequest.class))).thenReturn(response);
 
         mockMvc.perform(patch("/api/v1/leads/{leadId}/status", leadId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("QUALIFIED"));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Lead status updated successfully"))
+                .andExpect(jsonPath("$.data.status").value("QUALIFIED"));
     }
+
 
     @Test
     @DisplayName("GET /api/v1/leads/{leadId}/activities - Success HTTP 200")

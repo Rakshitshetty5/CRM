@@ -276,6 +276,22 @@ class TaskServiceTest {
     }
 
     @Test
+    @DisplayName("Update Task Status - COMPLETED to IN_PROGRESS throws IllegalArgumentException")
+    void updateTaskStatus_CompletedToInProgress_ThrowsException() {
+        UUID taskId = testTask.getId();
+        testTask.setStatus(TaskStatus.COMPLETED);
+        UpdateTaskStatusRequest request = new UpdateTaskStatusRequest(TaskStatus.IN_PROGRESS);
+
+        when(userRepository.findById(authUser.getId())).thenReturn(Optional.of(authUser));
+        when(taskRepository.findByIdAndOrganizationId(taskId, testOrg.getId())).thenReturn(Optional.of(testTask));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> taskService.updateTaskStatus(taskId, request));
+        assertEquals("Invalid status transition from COMPLETED to IN_PROGRESS", ex.getMessage());
+        verify(taskRepository, never()).save(any());
+    }
+
+
+    @Test
     @DisplayName("Update Task Status - COMPLETED creates LeadActivity")
     void updateTaskStatus_Completed_CreatesLeadActivity() {
         UUID taskId = testTask.getId();

@@ -5,9 +5,9 @@ import com.flowcrm.auth.dto.UpdateUserStatusRequest;
 import com.flowcrm.auth.dto.UserResponse;
 import com.flowcrm.auth.service.UserService;
 import com.flowcrm.common.enums.Role;
+import com.flowcrm.common.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -38,8 +38,8 @@ public class UserController {
 
     @Operation(summary = "Get current authenticated user profile", description = "Returns profile details of the current logged-in user")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "User profile retrieved successfully"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "User profile retrieved successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
     })
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getCurrentUser() {
@@ -49,22 +49,23 @@ public class UserController {
 
     @Operation(summary = "Create user", description = "Creates a new user within the authenticated admin's organization")
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "User created successfully"),
-            @ApiResponse(responseCode = "400", description = "Invalid request payload"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
-            @ApiResponse(responseCode = "403", description = "Forbidden - Admin access required"),
-            @ApiResponse(responseCode = "409", description = "Email already registered")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "User created successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request payload"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Admin access required"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "Email already registered")
     })
     @PostMapping
-    public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
+    public ResponseEntity<ApiResponse<UserResponse>> createUser(@Valid @RequestBody CreateUserRequest request) {
         UserResponse response = userService.createUser(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("User created successfully", response));
     }
 
     @Operation(summary = "Get organization users", description = "Retrieves a paged list of users within the organization")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Users retrieved successfully"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Users retrieved successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
     })
     @GetMapping
     public ResponseEntity<Page<UserResponse>> getUsers(
@@ -80,9 +81,9 @@ public class UserController {
 
     @Operation(summary = "Get user by ID", description = "Retrieves a user by ID within the organization")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "User retrieved successfully"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
-            @ApiResponse(responseCode = "404", description = "User not found")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "User retrieved successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "User not found")
     })
     @GetMapping("/{userId}")
     public ResponseEntity<UserResponse> getUserById(@Parameter(description = "UUID of the user") @PathVariable UUID userId) {
@@ -92,19 +93,18 @@ public class UserController {
 
     @Operation(summary = "Update user active status", description = "Updates active status of a user (Admin only)")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "User status updated successfully"),
-            @ApiResponse(responseCode = "400", description = "Invalid request payload"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
-            @ApiResponse(responseCode = "403", description = "Forbidden - Admin access required"),
-            @ApiResponse(responseCode = "404", description = "User not found")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "User status updated successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request payload"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Admin access required"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "User not found")
     })
     @PatchMapping("/{userId}/status")
-    public ResponseEntity<UserResponse> updateUserStatus(
+    public ResponseEntity<ApiResponse<UserResponse>> updateUserStatus(
             @Parameter(description = "UUID of the user") @PathVariable UUID userId,
             @Valid @RequestBody UpdateUserStatusRequest request
     ) {
         UserResponse response = userService.updateUserStatus(userId, request.active());
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success("User status updated successfully", response));
     }
 }
-

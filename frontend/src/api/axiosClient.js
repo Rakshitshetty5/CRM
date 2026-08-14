@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { toast } from '../utils/toast';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -21,8 +22,30 @@ axiosClient.interceptors.request.use(
 );
 
 axiosClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const method = response.config?.method?.toLowerCase();
+    const isWriteOp = ['post', 'put', 'patch', 'delete'].includes(method);
+
+    if (response.data && typeof response.data === 'object' && response.data.success === true) {
+      if (isWriteOp && response.data.message) {
+        toast.success(response.data.message);
+      }
+      if (response.data.data !== undefined) {
+        return { ...response, data: response.data.data };
+      }
+    }
+    return response;
+  },
+
   (error) => {
+    const method = error.config?.method?.toLowerCase();
+    const isWriteOp = ['post', 'put', 'patch', 'delete'].includes(method);
+
+    if (isWriteOp) {
+      const msg = error.response?.data?.message || 'Action failed. Please try again.';
+      toast.error(msg);
+    }
+
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -35,3 +58,4 @@ axiosClient.interceptors.response.use(
 );
 
 export default axiosClient;
+

@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { taskApi } from '../api/taskApi';
 import { leadApi } from '../api/leadApi';
 import { userApi } from '../api/userApi';
-import { Plus, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import { toast } from '../utils/toast';
+import { Plus, CheckCircle, Clock, AlertTriangle, Play } from 'lucide-react';
 
 export const TasksPage = () => {
   const [tasks, setTasks] = useState([]);
@@ -28,17 +29,22 @@ export const TasksPage = () => {
 
   useEffect(() => {
     fetchTasks();
-    fetchLeadsAndUsers();
   }, [statusFilter, priorityFilter]);
+
+  useEffect(() => {
+    fetchLeadsAndUsers();
+  }, []);
 
   const fetchTasks = async () => {
     setLoading(true);
     try {
-      const params = {};
+      const params = { page: 0, size: 50 };
       if (statusFilter) params.status = statusFilter;
       if (priorityFilter) params.priority = priorityFilter;
+
       const data = await taskApi.getTasks(params);
-      setTasks(data.content || []);
+      const tasksList = Array.isArray(data) ? data : (data?.content || data?.data?.content || data?.data || []);
+      setTasks(tasksList);
     } catch (err) {
       console.error('Failed to fetch tasks:', err);
       setError('Failed to load tasks');
@@ -50,14 +56,16 @@ export const TasksPage = () => {
   const fetchLeadsAndUsers = async () => {
     try {
       const leadData = await leadApi.getLeads({ size: 100 });
-      setLeads(leadData.content || []);
+      const leadsList = Array.isArray(leadData) ? leadData : (leadData?.content || leadData?.data?.content || leadData?.data || []);
+      setLeads(leadsList);
+
       const userData = await userApi.getUsers({ role: 'SALES_REP', active: true, size: 100 });
-      setUsers(userData.content || []);
+      const usersList = Array.isArray(userData) ? userData : (userData?.content || userData?.data?.content || userData?.data || []);
+      setUsers(usersList);
     } catch (err) {
       console.error('Failed to fetch filter dependencies:', err);
     }
   };
-
 
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
@@ -65,19 +73,20 @@ export const TasksPage = () => {
       await taskApi.createTask(newTask);
       setShowCreateModal(false);
       setNewTask({ title: '', description: '', priority: 'MEDIUM', dueDate: '', leadId: '', assignedTo: '' });
-      fetchTasks();
+      await fetchTasks();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to create task');
+      console.error('Failed to create task:', err);
     }
   };
 
-  const handleStatusToggle = async (task) => {
-    const nextStatus = task.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED';
+  const handleStatusChange = async (taskId, newStatus) => {
     try {
-      await taskApi.updateTaskStatus(task.id, nextStatus);
-      fetchTasks();
+      await taskApi.updateTaskStatus(taskId, newStatus);
+      await fetchTasks();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update task status');
+      console.error('Failed to update task status:', err);
+      const errorMsg = err.response?.data?.message || err.message || 'Failed to update task status';
+      toast.error(errorMsg);
     }
   };
 
@@ -91,7 +100,7 @@ export const TasksPage = () => {
   };
 
   const isOverdue = (dueDate, status) => {
-    if (!dueDate || status === 'COMPLETED') return false;
+    if (status === 'COMPLETED' || !dueDate) return false;
     return new Date(dueDate) < new Date();
   };
 
@@ -106,9 +115,9 @@ export const TasksPage = () => {
       </div>
 
       {/* Filters Bar */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+      <div className="filter-bar">
         <select
-          className="form-select"
+          className="form-select filter-select"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
         >
@@ -120,7 +129,7 @@ export const TasksPage = () => {
         </select>
 
         <select
-          className="form-select"
+          className="form-select filter-select"
           value={priorityFilter}
           onChange={(e) => setPriorityFilter(e.target.value)}
         >
@@ -146,9 +155,9 @@ export const TasksPage = () => {
                 <th>Priority</th>
                 <th>Status</th>
                 <th>Due Date</th>
-                <th>Lead</th>
+                <th>Related Lead</th>
                 <th>Assigned To</th>
-                <th>Action</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -156,10 +165,10 @@ export const TasksPage = () => {
                 const overdue = isOverdue(task.dueDate, task.status);
                 return (
                   <tr key={task.id}>
-                    <td style={{ fontWeight: 600 }}>
-                      {task.title}
+                    <td>
+                      <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{task.title}</div>
                       {task.description && (
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 400 }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
                           {task.description}
                         </div>
                       )}
@@ -170,10 +179,11 @@ export const TasksPage = () => {
                       </span>
                     </td>
                     <td>
-                      <span className={`badge ${task.status === 'COMPLETED' ? 'badge-won' : overdue ? 'badge-lost' : 'badge-contacted'}`}>
-                        {overdue ? 'OVERDUE' : task.status}
+                      <span className={`badge ${task.status === 'COMPLETED' ? 'badge-won' : task.status === 'IN_PROGRESS' ? 'badge-qualified' : overdue ? 'badge-lost' : 'badge-contacted'}`}>
+                        {overdue ? 'OVERDUE' : task.status.replace('_', ' ')}
                       </span>
                     </td>
+
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: overdue ? '#f87171' : 'inherit' }}>
                         {overdue ? <AlertTriangle size={14} /> : <Clock size={14} />}
@@ -184,14 +194,40 @@ export const TasksPage = () => {
                     <td>{task.assignedToName || 'Unassigned'}</td>
 
                     <td>
-                      <button
-                        className={`btn ${task.status === 'COMPLETED' ? 'btn-secondary' : 'btn-primary'} btn-sm`}
-                        onClick={() => handleStatusToggle(task)}
-                      >
-                        <CheckCircle size={14} />
-                        {task.status === 'COMPLETED' ? 'Reopen' : 'Complete'}
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        {task.status === 'COMPLETED' ? (
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => handleStatusChange(task.id, 'PENDING')}
+                          >
+                            Reopen
+                          </button>
+                        ) : task.status === 'IN_PROGRESS' ? (
+                          <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => handleStatusChange(task.id, 'COMPLETED')}
+                          >
+                            <CheckCircle size={14} /> Complete
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => handleStatusChange(task.id, 'IN_PROGRESS')}
+                            >
+                              <Play size={13} /> Start
+                            </button>
+                            <button
+                              className="btn btn-primary btn-sm"
+                              onClick={() => handleStatusChange(task.id, 'COMPLETED')}
+                            >
+                              <CheckCircle size={14} /> Complete
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
+
                   </tr>
                 );
               })}
@@ -232,20 +268,24 @@ export const TasksPage = () => {
                 </div>
               </div>
               <div className="form-group">
-                <label className="form-label">Associated Lead</label>
-                <select className="form-select" required value={newTask.leadId} onChange={(e) => setNewTask({ ...newTask, leadId: e.target.value })}>
+                <label className="form-label">Related Lead</label>
+                <select className="form-select" value={newTask.leadId} onChange={(e) => setNewTask({ ...newTask, leadId: e.target.value })}>
                   <option value="">-- Select Lead --</option>
-                  {leads.map((l) => (
-                    <option key={l.id} value={l.id}>{l.firstName} {l.lastName} ({l.company || l.email})</option>
+                  {leads.map(l => (
+                    <option key={l.id} value={l.id}>
+                      {l.company ? `${l.firstName} ${l.lastName} (${l.company})` : `${l.firstName} ${l.lastName}`}
+                    </option>
                   ))}
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Assignee</label>
+                <label className="form-label">Assign To</label>
                 <select className="form-select" value={newTask.assignedTo} onChange={(e) => setNewTask({ ...newTask, assignedTo: e.target.value })}>
-                  <option value="">-- Unassigned --</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>
+                  <option value="">-- Assign Sales Rep --</option>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.firstName} {u.lastName} ({u.role})
+                    </option>
                   ))}
                 </select>
               </div>
