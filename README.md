@@ -31,7 +31,7 @@ FlowCRM is deployed live in production on **Railway** ([railway.app](https://rai
 - **Lead Management**: Full lifecycle management of leads across stages (`NEW`, `CONTACTED`, `QUALIFIED`, `DEMO_SCHEDULED`, `PROPOSAL_SENT`, `NEGOTIATION`, `WON`, `LOST`), sources (`WEBSITE`, `REFERRAL`, `EMAIL`, `SOCIAL_MEDIA`, `MANUAL`), lead assignments, and automated activity audit trails. Includes **Update Lead** functionality with RBAC checks (`ADMIN`, creator, assigned user). Default search/filter and sorting (`createdAt DESC`).
 - **Task Management**: Task creation, editing (**Update Task**), assignments, priority management (`LOW`, `MEDIUM`, `HIGH`), due dates, overdue detection, and status workflow transitions (`PENDING`, `IN_PROGRESS`, `COMPLETED`) with backend-enforced status transition rules. Default search/filter and sorting (incomplete tasks by `dueDate ASC` before completed tasks by `updatedAt DESC`).
 - **Validation & Error Handling**: In-modal error banners and field-level error messages (`.form-error-msg` / `.is-invalid`) extracting exact backend validation error messages (`@Valid` field constraints and custom rules).
-- **Notifications**: Automated in-app notifications generated asynchronously from domain events (such as `LeadAssigned` and `TaskFollowUpDue`) with enriched metadata.
+- **Notifications**: Automated in-app notifications generated asynchronously from domain events (`LEAD_ASSIGNED`, `TASK_ASSIGNED`, and `TASK_FOLLOW_UP_DUE`) with enriched metadata.
 - **Dashboard**: Real-time analytical dashboard presenting lead status distributions, task completion metrics, and overdue task counters, scoped by organization and role.
 - **Redis Caching**: Cache-Aside implementation using Spring Cache and Jackson JSON serialization for dashboard metrics with organization and user-specific cache keys (`org:{orgId}:user:{userId}`) and user profiles (`userProfile`), with automatic cache eviction on data mutations.
 - **Rate Limiting**: Custom API rate limiter implemented via atomic Redis Lua scripts enforcing a sliding window algorithm to protect endpoints against brute force and abuse.
@@ -360,6 +360,16 @@ Kafka provides **at-least-once delivery**. To ensure duplicate network transmiss
 - **Consumers**: `LeadEventConsumer.java`, `TaskEventConsumer.java`.
 - **Consumer Group**: `flowcrm-monolith`.
 - **Retry & DLT**: Configured with `@RetryableTopic(attempts = 3, backOff = @BackOff(delay = 1000))` routing unprocessable messages to `.DLT` topics (e.g. `leads.events.DLT`).
+
+### Supported Notifications
+
+FlowCRM generates real-time, asynchronous in-app notifications triggered by domain events processed through Kafka and `EventProcessingService`. All notifications are scoped by user and organization with enriched context metadata.
+
+| Notification Type | Trigger Event(s) | Default Title | Default Message | Reference Entity | Enriched Metadata Fields |
+|---|---|---|---|---|---|
+| `LEAD_ASSIGNED` | `LeadAssigned` | `"New Lead Assigned"` | `"A new lead has been assigned to you."` | Lead ID | `leadId`, `leadName`, `leadDescription`, `stage` |
+| `TASK_ASSIGNED` | `TaskAssigned`, `TaskCreated` | `"New Task Assigned"` | `"A new task has been assigned to you."` | Task ID | `taskId`, `taskTitle`, `taskDescription`, `priority`, `dueDate`, `leadId`, `leadName` |
+| `TASK_FOLLOW_UP_DUE` | `TaskFollowUpDue` | `"Task Follow-up Due"` | `"Your follow-up task is due."` | Task ID | `taskId`, `taskTitle`, `taskDescription`, `leadId`, `leadName` |
 
 ---
 
