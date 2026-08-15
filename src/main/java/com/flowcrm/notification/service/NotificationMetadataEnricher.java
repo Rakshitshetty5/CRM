@@ -101,6 +101,62 @@ public class NotificationMetadataEnricher {
         return metadata;
     }
 
+    public Map<String, Object> buildTaskAssignedMetadata(UUID taskId, JsonNode payloadRoot) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        if (taskId != null) {
+            metadata.put("taskId", taskId.toString());
+        }
+
+        String taskTitle = getJsonString(payloadRoot, "taskTitle");
+        if (taskTitle == null) {
+            taskTitle = getJsonString(payloadRoot, "title");
+        }
+        String taskDescription = getJsonString(payloadRoot, "taskDescription");
+        if (taskDescription == null) {
+            taskDescription = getJsonString(payloadRoot, "description");
+        }
+        String priority = getJsonString(payloadRoot, "priority");
+        String dueDate = getJsonString(payloadRoot, "dueDate");
+        String leadIdStr = getJsonString(payloadRoot, "leadId");
+        String leadName = getJsonString(payloadRoot, "leadName");
+
+        if ((taskTitle == null || taskDescription == null || priority == null || dueDate == null || leadIdStr == null || leadName == null) && taskId != null) {
+            Optional<Task> taskOpt = taskRepository.findById(taskId);
+            if (taskOpt.isPresent()) {
+                Task task = taskOpt.get();
+                if (taskTitle == null) {
+                    taskTitle = task.getTitle();
+                }
+                if (taskDescription == null) {
+                    taskDescription = task.getDescription();
+                }
+                if (priority == null && task.getPriority() != null) {
+                    priority = task.getPriority().name();
+                }
+                if (dueDate == null && task.getDueDate() != null) {
+                    dueDate = task.getDueDate().toString();
+                }
+                if (task.getLead() != null) {
+                    if (leadIdStr == null && task.getLead().getId() != null) {
+                        leadIdStr = task.getLead().getId().toString();
+                    }
+                    if (leadName == null) {
+                        leadName = extractLeadName(task.getLead());
+                    }
+                }
+            }
+        }
+
+        metadata.put("taskTitle", taskTitle);
+        metadata.put("taskDescription", taskDescription);
+        metadata.put("priority", priority);
+        metadata.put("dueDate", dueDate);
+        metadata.put("leadId", leadIdStr);
+        metadata.put("leadName", leadName);
+
+        return metadata;
+    }
+
     private String extractLeadName(Lead lead) {
         if (lead.getCompany() != null && !lead.getCompany().isBlank()) {
             return lead.getCompany();

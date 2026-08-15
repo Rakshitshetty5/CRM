@@ -45,12 +45,14 @@ public class EventProcessingService {
             return false;
         }
 
-        // 2. Perform event-specific processing (e.g. Notification creation for LeadAssigned, TaskFollowUpDue)
+        // 2. Perform event-specific processing (e.g. Notification creation for LeadAssigned, TaskFollowUpDue, TaskAssigned, TaskCreated)
         try {
             if ("LeadAssigned".equalsIgnoreCase(envelope.eventType())) {
                 processLeadAssignedEvent(envelope);
             } else if ("TaskFollowUpDue".equalsIgnoreCase(envelope.eventType())) {
                 processTaskFollowUpDueEvent(envelope);
+            } else if ("TaskAssigned".equalsIgnoreCase(envelope.eventType()) || "TaskCreated".equalsIgnoreCase(envelope.eventType())) {
+                processTaskAssignedEvent(envelope);
             }
         } catch (Exception e) {
             meterRegistry.counter("kafka.events.failed", "eventType", envelope.eventType() != null ? envelope.eventType() : "unknown").increment();
@@ -148,6 +150,43 @@ public class EventProcessingService {
                 throw re;
             }
             throw new RuntimeException("Failed to process TaskFollowUpDue notification", e);
+        }
+    }
+
+    private void processTaskAssignedEvent(EventEnvelope envelope) {
+        if (envelope.payload() == null || envelope.payload().isBlank()) {
+            return;
+        }
+        try {
+            JsonNode root = objectMapper.readTree(envelope.payload());
+            UUID organizationId = root.has("organizationId") && !root.get("organizationId").isNull()
+                    ? UUID.fromString(root.get("organizationId").asText()) : null;
+            UUID taskId = root.has("taskId") && !root.get("taskId").isNull()
+                    ? UUID.fromString(root.get("taskId").asText())
+                    : (root.has("entityId") && !root.get("entityId").isNull()
+                        ? UUID.fromString(root.get("entityId").asText())
+                        : envelope.aggregateId());
+            UUID assignedTo = root.has("assignedTo") && !root.get("assignedTo").isNull()
+                    ? UUID.fromString(root.get("assignedTo").asText()) : null;
+
+            if (assignedTo != null && organizationId != null) {
+                Map<String, Object> metadata = notificationMetadataEnricher.buildTaskAssignedMetadata(taskId, root);
+                notificationService.createNotification(
+                        assignedTo,
+                        organizationId,
+                        "TASK_ASSIGNED",
+                        "New Task Assigned",
+                        "A new task has been assigned to you.",
+                        taskId,
+                        metadata
+                );
+            }
+        } catch (Exception e) {
+            log.error("Failed to process TaskAssigned event for notification: eventId={}", envelope.id(), e);
+            if (e instanceof RuntimeException re) {
+                throw re;
+            }
+            throw new RuntimeException("Failed to process TaskAssigned notification", e);
         }
     }
 
