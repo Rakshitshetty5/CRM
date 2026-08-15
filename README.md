@@ -10,14 +10,27 @@ The platform provides end-to-end management for sales leads, task workflows, org
 
 ---
 
+# 🚀 Production Deployment & Endpoints
+
+FlowCRM is deployed live in production on **Railway** ([railway.app](https://railway.app)) integrated with **Aiven Managed Kafka**, **Railway PostgreSQL**, and **Railway Redis**:
+
+| Service / Resource | Production URL | Status | Description |
+| :--- | :--- | :--- | :--- |
+| **React 19 Frontend SPA** | [https://flowcrm-frontend-production.up.railway.app](https://flowcrm-frontend-production.up.railway.app) | `● ONLINE` | User Web Interface for Lead, Task, Notification & Dashboard Management |
+| **Spring Boot REST API** | [https://flowcrm-backend-production.up.railway.app](https://flowcrm-backend-production.up.railway.app) | `● ONLINE` | Monolithic Backend API Server (Java 21, Spring Boot 3.4.3) |
+| **OpenAPI / Swagger UI** | [https://flowcrm-backend-production.up.railway.app/swagger-ui/index.html](https://flowcrm-backend-production.up.railway.app/swagger-ui/index.html) | `● ONLINE` | Interactive OpenAPI 3.0 API Documentation & Playground |
+| **Actuator Health Check** | [https://flowcrm-backend-production.up.railway.app/actuator/health](https://flowcrm-backend-production.up.railway.app/actuator/health) | `● ONLINE` | Spring Boot Actuator Health Check Endpoint |
+
+---
+
 # Features
 
 - **Authentication & Authorization**: Secure JWT-based stateless authentication using Spring Security, supporting BCrypt password hashing, refresh token rotation, and Role-Based Access Control (RBAC).
 - **Multi-Tenancy & Tenant Isolation**: Organization-level data partitioning ensuring strict data isolation across organizations across all API queries.
 - **User Management**: Support for `ADMIN` and `SALES_REP` user roles with scoped permissions.
-- **Lead Management**: Full lifecycle management of leads across stages (`NEW`, `CONTACTED`, `QUALIFIED`, `DEMO_SCHEDULED`, `PROPOSAL_SENT`, `NEGOTIATION`, `WON`, `LOST`), sources (`WEBSITE`, `REFERRAL`, `EMAIL`, `SOCIAL_MEDIA`, `MANUAL`), lead assignments, and automated activity audit trails. Default search/filter and sorting (`createdAt DESC`).
-- **Task Management**: Task creation, assignments, priority management (`LOW`, `MEDIUM`, `HIGH`), due dates, overdue detection, and status workflow transitions (`PENDING`, `IN_PROGRESS`, `COMPLETED`) with backend-enforced status transition rules. Default search/filter and sorting (incomplete tasks by `dueDate ASC` before completed tasks by `updatedAt DESC`).
-
+- **Lead Management**: Full lifecycle management of leads across stages (`NEW`, `CONTACTED`, `QUALIFIED`, `DEMO_SCHEDULED`, `PROPOSAL_SENT`, `NEGOTIATION`, `WON`, `LOST`), sources (`WEBSITE`, `REFERRAL`, `EMAIL`, `SOCIAL_MEDIA`, `MANUAL`), lead assignments, and automated activity audit trails. Includes **Update Lead** functionality with RBAC checks (`ADMIN`, creator, assigned user). Default search/filter and sorting (`createdAt DESC`).
+- **Task Management**: Task creation, editing (**Update Task**), assignments, priority management (`LOW`, `MEDIUM`, `HIGH`), due dates, overdue detection, and status workflow transitions (`PENDING`, `IN_PROGRESS`, `COMPLETED`) with backend-enforced status transition rules. Default search/filter and sorting (incomplete tasks by `dueDate ASC` before completed tasks by `updatedAt DESC`).
+- **Validation & Error Handling**: In-modal error banners and field-level error messages (`.form-error-msg` / `.is-invalid`) extracting exact backend validation error messages (`@Valid` field constraints and custom rules).
 - **Notifications**: Automated in-app notifications generated asynchronously from domain events (such as `LeadAssigned` and `TaskFollowUpDue`) with enriched metadata.
 - **Dashboard**: Real-time analytical dashboard presenting lead status distributions, task completion metrics, and overdue task counters, scoped by organization and role.
 - **Redis Caching**: Cache-Aside implementation using Spring Cache and Jackson JSON serialization for dashboard metrics with organization and user-specific cache keys (`org:{orgId}:user:{userId}`) and user profiles (`userProfile`), with automatic cache eviction on data mutations.
@@ -30,7 +43,7 @@ The platform provides end-to-end management for sales leads, task workflows, org
 - **Scheduled Jobs**: Background schedulers for task follow-up reminder evaluation and transactional outbox event publishing.
 - **Observability**: Health checks and operational metrics via Spring Boot Actuator (`/actuator/health`, `/actuator/metrics`).
 - **Swagger/OpenAPI**: Interactive API documentation generated via SpringDoc OpenAPI 3.0 at `/swagger-ui/index.html`.
-- **React Frontend**: Modern single-page application built with React 19, Vite 8, Lucide React icons, Axios interceptors, and Toast notifications.
+- **React Frontend**: Modern single-page application built with React 19, Vite 8, Lucide React icons, Axios interceptors, in-modal validation error displays, and Toast notifications.
 
 ---
 
@@ -617,24 +630,35 @@ erDiagram
 
 # Deployment
 
-FlowCRM includes containerized deployment files ready for Docker environments.
+FlowCRM is deployed live in production on **Railway** ([railway.app](https://railway.app)) integrated with **Aiven Managed Kafka**, **Railway PostgreSQL**, and **Railway Redis**.
+
+### Production Infrastructure Topology
+- **Web SPA Service (`flowcrm-frontend`)**: Node.js/Vite environment serving static React SPA assets deployed on Railway.
+- **Backend API Service (`flowcrm-backend`)**: Containerized Java 21 Spring Boot executable JAR deployed on Railway Cloud (`flowcrm-backend-production.up.railway.app`).
+- **Database (`Postgres-YFoV`)**: Railway managed PostgreSQL instance.
+- **Cache (`redis-service`)**: Railway managed Redis instance.
+- **Event Bus (`Aiven Kafka`)**: Cloud managed Kafka broker (`kafka-22c4a196-rakshitshetty561998-f36f.a.aivencloud.com:21649`) configured with custom SSL engine (`InsecureKafkaSslEngineFactory`) for Aiven cloud certificates.
+- **JVM TimeZone Alignment**: Application timezone configured to `Asia/Kolkata` (`UTC+5:30`) via `@PostConstruct` in `FlowcrmApplication.java` to ensure scheduled follow-up reminders (`TaskFollowUpScheduler`) align with user local wall-clock dates.
 
 ### Production Profile Configuration (`application-prod.yml`)
-- Activates on `SPRING_PROFILES_ACTIVE=prod`.
-- Expects external environment variables for external managed databases and brokers.
+- Activates when `SPRING_PROFILES_ACTIVE=prod`.
+- Configured via environment variables on Railway.
 
 ### Required Production Environment Variables
 ```env
 PORT=8080
-DB_URL=jdbc:postgresql://postgres-host:5432/flowcrm-db
-DB_USER=flowcrm_user
-DB_PASS=secure_db_password
+SPRING_PROFILES_ACTIVE=prod
+DB_URL=jdbc:postgresql://postgres-host:5432/railway
+DB_USER=postgres
+DB_PASS=railway_secure_password
 REDIS_HOST=redis-host
 REDIS_PORT=6379
-REDIS_PASSWORD=secure_redis_password
-KAFKA_BROKERS=kafka-host:9092
+REDIS_PASSWORD=redis_secure_password
+KAFKA_BROKERS=kafka-22c4a196-rakshitshetty561998-f36f.a.aivencloud.com:21649
+KAFKA_SECURITY_PROTOCOL=SSL
+KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM=
 JWT_SECRET_KEY=your-256-bit-production-secret-key-here
-CORS_ALLOWED_ORIGINS=https://app.yourdomain.com
+CORS_ALLOWED_ORIGINS=https://flowcrm-frontend-production.up.railway.app
 ```
 
 ---

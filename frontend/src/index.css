@@ -499,6 +499,22 @@ tr:hover {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
+.form-input.is-invalid, .form-select.is-invalid, .form-textarea.is-invalid {
+  border-color: var(--danger) !important;
+}
+.form-input.is-invalid:focus, .form-select.is-invalid:focus, .form-textarea.is-invalid:focus {
+  border-color: var(--danger) !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15) !important;
+}
+
+.form-error-msg {
+  color: var(--danger);
+  font-size: 0.75rem;
+  margin-top: 0.35rem;
+  display: block;
+  font-weight: 500;
+}
+
 /* Modals */
 .modal-overlay {
   position: fixed;

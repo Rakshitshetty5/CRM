@@ -42,7 +42,13 @@ axiosClient.interceptors.response.use(
     const isWriteOp = ['post', 'put', 'patch', 'delete'].includes(method);
 
     if (isWriteOp) {
-      const msg = error.response?.data?.message || 'Action failed. Please try again.';
+      let msg = error.response?.data?.message || 'Action failed. Please try again.';
+      if (error.response?.data?.errors && typeof error.response.data.errors === 'object') {
+        const fieldMsgs = Object.values(error.response.data.errors).filter(Boolean);
+        if (fieldMsgs.length > 0) {
+          msg = fieldMsgs.join('. ');
+        }
+      }
       toast.error(msg);
     }
 

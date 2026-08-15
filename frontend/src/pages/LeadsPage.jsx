@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { leadApi } from '../api/leadApi';
 import { userApi } from '../api/userApi';
+import { useAuth } from '../context/AuthContext';
+import { canEditLead } from '../utils/permissionUtils';
 import { Plus, Search, Filter, UserCheck, Eye, Edit2 } from 'lucide-react';
 
 export const LeadsPage = () => {
+  const { user } = useAuth();
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -18,9 +21,12 @@ export const LeadsPage = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState(null);
+  const [editingLead, setEditingLead] = useState(null);
+  const [formError, setFormError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [leadActivities, setLeadActivities] = useState([]);
 
-  // Create Form State
+  // Create/Edit Form State
   const [newLead, setNewLead] = useState({
     firstName: '',
     lastName: '',
@@ -66,15 +72,66 @@ export const LeadsPage = () => {
     }
   };
 
+  const openCreateModal = () => {
+    setEditingLead(null);
+    setFormError('');
+    setFieldErrors({});
+    setNewLead({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      company: '',
+      source: 'WEBSITE',
+      notes: '',
+    });
+    setShowCreateModal(true);
+  };
+
+  const openEditModal = (lead) => {
+    setEditingLead(lead);
+    setFormError('');
+    setFieldErrors({});
+    setNewLead({
+      firstName: lead.firstName || '',
+      lastName: lead.lastName || '',
+      email: lead.email || '',
+      phone: lead.phone || '',
+      company: lead.company || '',
+      source: lead.source || 'WEBSITE',
+      notes: lead.notes || '',
+    });
+    setShowCreateModal(true);
+  };
+
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
+    setFormError('');
+    setFieldErrors({});
     try {
-      await leadApi.createLead(newLead);
+      if (editingLead) {
+        await leadApi.updateLead(editingLead.id, newLead);
+      } else {
+        await leadApi.createLead(newLead);
+      }
       setShowCreateModal(false);
+      setEditingLead(null);
       setNewLead({ firstName: '', lastName: '', email: '', phone: '', company: '', source: 'WEBSITE', notes: '' });
       await fetchLeads();
     } catch (err) {
-      console.error('Failed to create lead:', err);
+      console.error('Failed to save lead:', err);
+      const serverErrors = err.response?.data?.errors;
+      if (serverErrors && typeof serverErrors === 'object') {
+        setFieldErrors(serverErrors);
+      }
+      let errorMsg = err.response?.data?.message || err.message || 'Failed to save lead';
+      if (serverErrors && typeof serverErrors === 'object') {
+        const fieldMsgs = Object.values(serverErrors).filter(Boolean);
+        if (fieldMsgs.length > 0) {
+          errorMsg = fieldMsgs.join('. ');
+        }
+      }
+      setFormError(errorMsg);
     }
   };
 
@@ -102,8 +159,6 @@ export const LeadsPage = () => {
     }
   };
 
-
-
   const openDetailModal = async (lead) => {
     setSelectedLead(lead);
     setShowDetailModal(true);
@@ -130,7 +185,7 @@ export const LeadsPage = () => {
     <div>
       <div className="page-header">
         <h1 className="page-title">Lead Management</h1>
-        <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+        <button className="btn btn-primary" onClick={openCreateModal}>
           <Plus size={18} />
           <span>Create Lead</span>
         </button>
@@ -165,7 +220,6 @@ export const LeadsPage = () => {
           <option value="LOST">Lost</option>
         </select>
       </div>
-
 
       {loading ? (
         <div style={{ color: 'var(--text-muted)' }}>Loading leads...</div>
@@ -215,6 +269,11 @@ export const LeadsPage = () => {
                       <button className="btn btn-secondary btn-sm" onClick={() => openDetailModal(lead)}>
                         <Eye size={14} /> View
                       </button>
+                      {canEditLead(user, lead) && (
+                        <button className="btn btn-secondary btn-sm" onClick={() => openEditModal(lead)}>
+                          <Edit2 size={14} /> Edit
+                        </button>
+                      )}
                       <button className="btn btn-secondary btn-sm" onClick={() => { setSelectedLead(lead); setShowAssignModal(true); }}>
                         <UserCheck size={14} /> Assign
                       </button>
@@ -227,41 +286,79 @@ export const LeadsPage = () => {
         </div>
       )}
 
-      {/* Create Lead Modal */}
+      {/* Create / Edit Lead Modal */}
       {showCreateModal && (
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h3 className="modal-title">Create New Lead</h3>
-              <button onClick={() => setShowCreateModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
+              <h3 className="modal-title">{editingLead ? 'Edit Lead' : 'Create New Lead'}</h3>
+              <button onClick={() => { setShowCreateModal(false); setEditingLead(null); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
             </div>
             <form onSubmit={handleCreateSubmit}>
+              {formError && (
+                <div style={{ padding: '0.75rem 1rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--danger)', borderRadius: 'var(--radius)', color: 'var(--danger)', marginBottom: '1rem', fontSize: '0.875rem' }}>
+                  {formError}
+                </div>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
                   <label className="form-label">First Name</label>
-                  <input type="text" className="form-input" required value={newLead.firstName} onChange={(e) => setNewLead({ ...newLead, firstName: e.target.value })} />
+                  <input
+                    type="text"
+                    className={`form-input ${fieldErrors.firstName ? 'is-invalid' : ''}`}
+                    required
+                    value={newLead.firstName}
+                    onChange={(e) => setNewLead({ ...newLead, firstName: e.target.value })}
+                  />
+                  {fieldErrors.firstName && <span className="form-error-msg">{fieldErrors.firstName}</span>}
                 </div>
                 <div className="form-group">
                   <label className="form-label">Last Name</label>
-                  <input type="text" className="form-input" required value={newLead.lastName} onChange={(e) => setNewLead({ ...newLead, lastName: e.target.value })} />
+                  <input
+                    type="text"
+                    className={`form-input ${fieldErrors.lastName ? 'is-invalid' : ''}`}
+                    required
+                    value={newLead.lastName}
+                    onChange={(e) => setNewLead({ ...newLead, lastName: e.target.value })}
+                  />
+                  {fieldErrors.lastName && <span className="form-error-msg">{fieldErrors.lastName}</span>}
                 </div>
               </div>
               <div className="form-group">
                 <label className="form-label">Email</label>
-                <input type="email" className="form-input" required value={newLead.email} onChange={(e) => setNewLead({ ...newLead, email: e.target.value })} />
+                <input
+                  type="email"
+                  className={`form-input ${fieldErrors.email ? 'is-invalid' : ''}`}
+                  required
+                  value={newLead.email}
+                  onChange={(e) => setNewLead({ ...newLead, email: e.target.value })}
+                />
+                {fieldErrors.email && <span className="form-error-msg">{fieldErrors.email}</span>}
               </div>
               <div className="form-group">
                 <label className="form-label">Phone</label>
-                <input type="text" className="form-input" value={newLead.phone} onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })} />
+                <input
+                  type="text"
+                  className={`form-input ${fieldErrors.phone ? 'is-invalid' : ''}`}
+                  value={newLead.phone}
+                  onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })}
+                />
+                {fieldErrors.phone && <span className="form-error-msg">{fieldErrors.phone}</span>}
               </div>
               <div className="form-group">
                 <label className="form-label">Company</label>
-                <input type="text" className="form-input" value={newLead.company} onChange={(e) => setNewLead({ ...newLead, company: e.target.value })} />
+                <input
+                  type="text"
+                  className={`form-input ${fieldErrors.company ? 'is-invalid' : ''}`}
+                  value={newLead.company}
+                  onChange={(e) => setNewLead({ ...newLead, company: e.target.value })}
+                />
+                {fieldErrors.company && <span className="form-error-msg">{fieldErrors.company}</span>}
               </div>
               <div className="form-group">
                 <label className="form-label">Source</label>
                 <select
-                  className="form-select"
+                  className={`form-select ${fieldErrors.source ? 'is-invalid' : ''}`}
                   value={newLead.source}
                   onChange={(e) => setNewLead({ ...newLead, source: e.target.value })}
                 >
@@ -271,15 +368,22 @@ export const LeadsPage = () => {
                   <option value="SOCIAL_MEDIA">Social Media</option>
                   <option value="MANUAL">Manual</option>
                 </select>
+                {fieldErrors.source && <span className="form-error-msg">{fieldErrors.source}</span>}
               </div>
 
               <div className="form-group">
                 <label className="form-label">Notes</label>
-                <textarea className="form-textarea" rows="3" value={newLead.notes} onChange={(e) => setNewLead({ ...newLead, notes: e.target.value })}></textarea>
+                <textarea
+                  className={`form-textarea ${fieldErrors.notes ? 'is-invalid' : ''}`}
+                  rows="3"
+                  value={newLead.notes}
+                  onChange={(e) => setNewLead({ ...newLead, notes: e.target.value })}
+                ></textarea>
+                {fieldErrors.notes && <span className="form-error-msg">{fieldErrors.notes}</span>}
               </div>
-              <div style={{ display: 'flex', justifySelf: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Create Lead</button>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => { setShowCreateModal(false); setEditingLead(null); }}>Cancel</button>
+                <button type="submit" className="btn btn-primary">{editingLead ? 'Update Lead' : 'Create Lead'}</button>
               </div>
             </form>
           </div>
@@ -318,7 +422,14 @@ export const LeadsPage = () => {
         <div className="modal-overlay">
           <div className="modal-content" style={{ maxWidth: '600px' }}>
             <div className="modal-header">
-              <h3 className="modal-title">{selectedLead.firstName} {selectedLead.lastName}</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <h3 className="modal-title">{selectedLead.firstName} {selectedLead.lastName}</h3>
+                {canEditLead(user, selectedLead) && (
+                  <button className="btn btn-secondary btn-sm" onClick={() => { setShowDetailModal(false); openEditModal(selectedLead); }}>
+                    <Edit2 size={14} /> Edit
+                  </button>
+                )}
+              </div>
               <button onClick={() => setShowDetailModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>✕</button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -329,7 +440,6 @@ export const LeadsPage = () => {
               <div><strong style={{ color: 'var(--text-muted)' }}>Source:</strong> {selectedLead.source || '-'}</div>
               <div><strong style={{ color: 'var(--text-muted)' }}>Assigned To:</strong> {selectedLead.assignedToName || 'Unassigned'}</div>
             </div>
-
 
             <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' }}>Activity Audit Trail</h4>
             <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: 'var(--radius)', padding: '0.75rem' }}>

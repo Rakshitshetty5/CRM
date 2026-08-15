@@ -2,10 +2,21 @@ import React, { useEffect, useState } from 'react';
 import { taskApi } from '../api/taskApi';
 import { leadApi } from '../api/leadApi';
 import { userApi } from '../api/userApi';
+import { useAuth } from '../context/AuthContext';
+import { canEditTask } from '../utils/permissionUtils';
 import { toast } from '../utils/toast';
-import { Plus, CheckCircle, Clock, AlertTriangle, Play } from 'lucide-react';
+import { Plus, CheckCircle, Clock, AlertTriangle, Play, Edit2 } from 'lucide-react';
+
+const formatForDatetimeLocal = (dateStr) => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
 
 export const TasksPage = () => {
+  const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -16,8 +27,11 @@ export const TasksPage = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
 
-  // Create Modal State
+  // Create / Edit Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
+  const [formError, setFormError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -67,15 +81,70 @@ export const TasksPage = () => {
     }
   };
 
+  const openCreateModal = () => {
+    setEditingTask(null);
+    setFormError('');
+    setFieldErrors({});
+    setNewTask({ title: '', description: '', priority: 'MEDIUM', dueDate: '', leadId: '', assignedTo: '' });
+    setShowCreateModal(true);
+  };
+
+  const openEditModal = (task) => {
+    setEditingTask(task);
+    setFormError('');
+    setFieldErrors({});
+    setNewTask({
+      title: task.title || '',
+      description: task.description || '',
+      priority: task.priority || 'MEDIUM',
+      dueDate: formatForDatetimeLocal(task.dueDate),
+      leadId: task.leadId || '',
+      assignedTo: task.assignedTo || '',
+    });
+    setShowCreateModal(true);
+  };
+
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
+    setFormError('');
+    setFieldErrors({});
+
+    if (newTask.dueDate && new Date(newTask.dueDate) <= new Date()) {
+      setFieldErrors({ dueDate: 'Due date must be in the future' });
+      setFormError('Due date must be in the future');
+      return;
+    }
+
     try {
-      await taskApi.createTask(newTask);
+      if (editingTask) {
+        await taskApi.updateTask(editingTask.id, {
+          title: newTask.title,
+          description: newTask.description,
+          priority: newTask.priority,
+          dueDate: newTask.dueDate,
+          assignedTo: newTask.assignedTo,
+        });
+      } else {
+        await taskApi.createTask(newTask);
+      }
       setShowCreateModal(false);
+      setEditingTask(null);
       setNewTask({ title: '', description: '', priority: 'MEDIUM', dueDate: '', leadId: '', assignedTo: '' });
       await fetchTasks();
     } catch (err) {
-      console.error('Failed to create task:', err);
+      console.error('Failed to save task:', err);
+      const serverErrors = err.response?.data?.errors;
+      if (serverErrors && typeof serverErrors === 'object') {
+        setFieldErrors(serverErrors);
+      }
+      let errorMsg = err.response?.data?.message || err.message || 'Failed to save task';
+      if (serverErrors && typeof serverErrors === 'object') {
+        const fieldMsgs = Object.values(serverErrors).filter(Boolean);
+        if (fieldMsgs.length > 0) {
+          errorMsg = fieldMsgs.join('. ');
+        }
+      }
+      setFormError(errorMsg);
     }
   };
 
@@ -85,8 +154,6 @@ export const TasksPage = () => {
       await fetchTasks();
     } catch (err) {
       console.error('Failed to update task status:', err);
-      const errorMsg = err.response?.data?.message || err.message || 'Failed to update task status';
-      toast.error(errorMsg);
     }
   };
 
@@ -108,7 +175,7 @@ export const TasksPage = () => {
     <div>
       <div className="page-header">
         <h1 className="page-title">Tasks & Reminders</h1>
-        <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+        <button className="btn btn-primary" onClick={openCreateModal}>
           <Plus size={18} />
           <span>Create Task</span>
         </button>
@@ -194,7 +261,12 @@ export const TasksPage = () => {
                     <td>{task.assignedToName || 'Unassigned'}</td>
 
                     <td>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        {canEditTask(user, task) && (
+                          <button className="btn btn-secondary btn-sm" onClick={() => openEditModal(task)}>
+                            <Edit2 size={13} /> Edit
+                          </button>
+                        )}
                         {task.status === 'COMPLETED' ? (
                           <button
                             className="btn btn-secondary btn-sm"
@@ -236,51 +308,94 @@ export const TasksPage = () => {
         </div>
       )}
 
-      {/* Create Task Modal */}
+      {/* Create / Edit Task Modal */}
       {showCreateModal && (
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h3 className="modal-title">Create New Task</h3>
-              <button onClick={() => setShowCreateModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>✕</button>
+              <h3 className="modal-title">{editingTask ? 'Edit Task' : 'Create New Task'}</h3>
+              <button onClick={() => { setShowCreateModal(false); setEditingTask(null); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>✕</button>
             </div>
             <form onSubmit={handleCreateSubmit}>
+              {formError && (
+                <div style={{ padding: '0.75rem 1rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--danger)', borderRadius: 'var(--radius)', color: 'var(--danger)', marginBottom: '1rem', fontSize: '0.875rem' }}>
+                  {formError}
+                </div>
+              )}
               <div className="form-group">
                 <label className="form-label">Task Title</label>
-                <input type="text" className="form-input" required value={newTask.title} onChange={(e) => setNewTask({ ...newTask, title: e.target.value })} placeholder="Follow up call" />
+                <input
+                  type="text"
+                  className={`form-input ${fieldErrors.title ? 'is-invalid' : ''}`}
+                  required
+                  value={newTask.title}
+                  onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                  placeholder="Follow up call"
+                />
+                {fieldErrors.title && <span className="form-error-msg">{fieldErrors.title}</span>}
               </div>
               <div className="form-group">
                 <label className="form-label">Description</label>
-                <textarea className="form-textarea" rows="2" value={newTask.description} onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}></textarea>
+                <textarea
+                  className={`form-textarea ${fieldErrors.description ? 'is-invalid' : ''}`}
+                  rows="2"
+                  value={newTask.description}
+                  onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                ></textarea>
+                {fieldErrors.description && <span className="form-error-msg">{fieldErrors.description}</span>}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
                   <label className="form-label">Priority</label>
-                  <select className="form-select" value={newTask.priority} onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}>
+                  <select
+                    className={`form-select ${fieldErrors.priority ? 'is-invalid' : ''}`}
+                    value={newTask.priority}
+                    onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
+                  >
                     <option value="LOW">LOW</option>
                     <option value="MEDIUM">MEDIUM</option>
                     <option value="HIGH">HIGH</option>
                   </select>
+                  {fieldErrors.priority && <span className="form-error-msg">{fieldErrors.priority}</span>}
                 </div>
                 <div className="form-group">
                   <label className="form-label">Due Date & Time</label>
-                  <input type="datetime-local" className="form-input" required value={newTask.dueDate} onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })} />
+                  <input
+                    type="datetime-local"
+                    className={`form-input ${fieldErrors.dueDate ? 'is-invalid' : ''}`}
+                    required
+                    value={newTask.dueDate}
+                    onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
+                  />
+                  {fieldErrors.dueDate && <span className="form-error-msg">{fieldErrors.dueDate}</span>}
                 </div>
               </div>
-              <div className="form-group">
-                <label className="form-label">Related Lead</label>
-                <select className="form-select" value={newTask.leadId} onChange={(e) => setNewTask({ ...newTask, leadId: e.target.value })}>
-                  <option value="">-- Select Lead --</option>
-                  {leads.map(l => (
-                    <option key={l.id} value={l.id}>
-                      {l.company ? `${l.firstName} ${l.lastName} (${l.company})` : `${l.firstName} ${l.lastName}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {!editingTask && (
+                <div className="form-group">
+                  <label className="form-label">Related Lead</label>
+                  <select
+                    className={`form-select ${fieldErrors.leadId ? 'is-invalid' : ''}`}
+                    value={newTask.leadId}
+                    onChange={(e) => setNewTask({ ...newTask, leadId: e.target.value })}
+                  >
+                    <option value="">-- Select Lead --</option>
+                    {leads.map(l => (
+                      <option key={l.id} value={l.id}>
+                        {l.company ? `${l.firstName} ${l.lastName} (${l.company})` : `${l.firstName} ${l.lastName}`}
+                      </option>
+                    ))}
+                  </select>
+                  {fieldErrors.leadId && <span className="form-error-msg">{fieldErrors.leadId}</span>}
+                </div>
+              )}
               <div className="form-group">
                 <label className="form-label">Assign To</label>
-                <select className="form-select" value={newTask.assignedTo} onChange={(e) => setNewTask({ ...newTask, assignedTo: e.target.value })}>
+                <select
+                  className={`form-select ${fieldErrors.assignedTo ? 'is-invalid' : ''}`}
+                  required
+                  value={newTask.assignedTo}
+                  onChange={(e) => setNewTask({ ...newTask, assignedTo: e.target.value })}
+                >
                   <option value="">-- Assign Sales Rep --</option>
                   {users.map(u => (
                     <option key={u.id} value={u.id}>
@@ -288,10 +403,11 @@ export const TasksPage = () => {
                     </option>
                   ))}
                 </select>
+                {fieldErrors.assignedTo && <span className="form-error-msg">{fieldErrors.assignedTo}</span>}
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Create Task</button>
+                <button type="button" className="btn btn-secondary" onClick={() => { setShowCreateModal(false); setEditingTask(null); }}>Cancel</button>
+                <button type="submit" className="btn btn-primary">{editingTask ? 'Update Task' : 'Create Task'}</button>
               </div>
             </form>
           </div>

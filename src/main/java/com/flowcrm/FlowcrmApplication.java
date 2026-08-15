@@ -10,6 +10,11 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @SpringBootApplication
 public class FlowcrmApplication {
 
+	@jakarta.annotation.PostConstruct
+	public void init() {
+		java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("Asia/Kolkata"));
+	}
+
 	public static void main(String[] args) {
 		SpringApplication.run(FlowcrmApplication.class, args);
 	}

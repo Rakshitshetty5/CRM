@@ -4,12 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.flowcrm.common.enums.ActivityType;
 import com.flowcrm.common.enums.LeadSource;
 import com.flowcrm.common.enums.LeadStatus;
-import com.flowcrm.common.exception.GlobalExceptionHandler;
-import com.flowcrm.lead.dto.CreateLeadRequest;
-import com.flowcrm.lead.dto.LeadActivityResponse;
-import com.flowcrm.lead.dto.LeadResponse;
-import com.flowcrm.lead.dto.UpdateLeadRequest;
-import com.flowcrm.lead.dto.UpdateLeadStatusRequest;
+import com.flowcrm.lead.dto.*;
 import com.flowcrm.lead.service.LeadService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -40,23 +35,22 @@ class LeadControllerTest {
 
     private MockMvc mockMvc;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
     @Mock
     private LeadService leadService;
 
     @InjectMocks
     private LeadController leadController;
 
+    private ObjectMapper objectMapper;
+
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(leadController)
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build();
+        mockMvc = MockMvcBuilders.standaloneSetup(leadController).build();
+        objectMapper = new ObjectMapper();
     }
 
     @Test
-    @DisplayName("POST /api/v1/leads - Success HTTP 201")
+    @DisplayName("POST /api/v1/leads - Success HTTP 201 Created")
     void createLead_Success() throws Exception {
         UUID leadId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
@@ -67,7 +61,7 @@ class LeadControllerTest {
 
         LeadResponse response = new LeadResponse(
                 leadId, "Rahul", "Sharma", "rahul@abc.com", "+919876543210",
-                "ABC Tech", LeadStatus.NEW, LeadSource.WEBSITE, "Notes", userId, "Sales Rep",
+                "ABC Tech", LeadStatus.NEW, LeadSource.WEBSITE, "Notes", userId, "Sales Rep", userId,
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
@@ -92,7 +86,7 @@ class LeadControllerTest {
         UUID userId = UUID.randomUUID();
         LeadResponse response = new LeadResponse(
                 leadId, "Rahul", "Sharma", "rahul@abc.com", "+919876543210",
-                "ABC Tech", LeadStatus.QUALIFIED, LeadSource.WEBSITE, "Notes", userId, "Sales Rep",
+                "ABC Tech", LeadStatus.QUALIFIED, LeadSource.WEBSITE, "Notes", userId, "Sales Rep", userId,
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
@@ -120,7 +114,7 @@ class LeadControllerTest {
         UUID userId = UUID.randomUUID();
         LeadResponse response = new LeadResponse(
                 leadId, "Rahul", "Sharma", "rahul@abc.com", "+919876543210",
-                "ABC Tech", LeadStatus.NEW, LeadSource.WEBSITE, "Notes", userId, "Sales Rep",
+                "ABC Tech", LeadStatus.NEW, LeadSource.WEBSITE, "Notes", userId, "Sales Rep", userId,
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
@@ -144,7 +138,7 @@ class LeadControllerTest {
 
         LeadResponse response = new LeadResponse(
                 leadId, "Rahul", "Sharma", "rahul@abc.com", "+919876543210",
-                "ABC Tech Updated", LeadStatus.NEW, LeadSource.REFERRAL, "Updated notes", userId, "Sales Rep",
+                "ABC Tech Updated", LeadStatus.NEW, LeadSource.REFERRAL, "Updated notes", userId, "Sales Rep", userId,
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
@@ -169,7 +163,7 @@ class LeadControllerTest {
 
         LeadResponse response = new LeadResponse(
                 leadId, "Rahul", "Sharma", "rahul@abc.com", "+919876543210",
-                "ABC Tech", LeadStatus.QUALIFIED, LeadSource.WEBSITE, "Notes", userId, "Sales Rep",
+                "ABC Tech", LeadStatus.QUALIFIED, LeadSource.WEBSITE, "Notes", userId, "Sales Rep", userId,
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
@@ -184,17 +178,16 @@ class LeadControllerTest {
                 .andExpect(jsonPath("$.data.status").value("QUALIFIED"));
     }
 
-
     @Test
     @DisplayName("GET /api/v1/leads/{leadId}/activities - Success HTTP 200")
     void getLeadActivities_Success() throws Exception {
         UUID leadId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
-        LeadActivityResponse activityResponse = new LeadActivityResponse(
+        LeadActivityResponse response = new LeadActivityResponse(
                 UUID.randomUUID(), ActivityType.LEAD_CREATED, "Lead created", userId, LocalDateTime.now()
         );
 
-        when(leadService.getLeadActivities(leadId)).thenReturn(List.of(activityResponse));
+        when(leadService.getLeadActivities(leadId)).thenReturn(List.of(response));
 
         mockMvc.perform(get("/api/v1/leads/{leadId}/activities", leadId))
                 .andExpect(status().isOk())

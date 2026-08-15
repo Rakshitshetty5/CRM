@@ -30,6 +30,8 @@ spring:
       security.protocol: ${KAFKA_SECURITY_PROTOCOL:PLAINTEXT}
       sasl.mechanism: ${KAFKA_SASL_MECHANISM:PLAIN}
       sasl.jaas.config: ${KAFKA_SASL_JAAS_CONFIG:}
+      ssl.engine.factory.class: ${KAFKA_SSL_ENGINE_FACTORY:com.flowcrm.kafka.config.InsecureKafkaSslEngineFactory}
+      ssl.endpoint.identification.algorithm: ""
     producer:
       acks: all
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
