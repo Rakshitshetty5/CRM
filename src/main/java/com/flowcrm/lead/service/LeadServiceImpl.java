@@ -326,6 +326,7 @@ public class LeadServiceImpl implements LeadService {
                 lead.getNotes(),
                 lead.getAssignedTo() != null ? lead.getAssignedTo().getId() : null,
                 assignedToName,
+                lead.getCreatedBy(),
                 lead.getCreatedAt(),
                 lead.getUpdatedAt()
         );
