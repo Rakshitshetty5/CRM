@@ -179,6 +179,83 @@ class EventProcessingServiceTest {
     }
 
     @Test
+    void testProcessTaskAssignedEventCreatesNotification() {
+        UUID eventId = UUID.randomUUID();
+        UUID orgId = UUID.randomUUID();
+        UUID taskId = UUID.randomUUID();
+        UUID assignedTo = UUID.randomUUID();
+        String payload = String.format("{\"organizationId\":\"%s\",\"taskId\":\"%s\",\"assignedTo\":\"%s\"}", orgId, taskId, assignedTo);
+
+        EventEnvelope envelope = new EventEnvelope(eventId, "TaskAssigned", "TASK", taskId, payload);
+        Map<String, Object> mockMetadata = Map.of("taskId", taskId.toString(), "taskTitle", "Test Task");
+
+        when(processedEventRepository.existsById(eventId)).thenReturn(false);
+        when(notificationMetadataEnricher.buildTaskAssignedMetadata(eq(taskId), any())).thenReturn(mockMetadata);
+
+        boolean processed = eventProcessingService.processEvent(envelope);
+
+        assertTrue(processed);
+        verify(notificationService, times(1)).createNotification(
+                eq(assignedTo),
+                eq(orgId),
+                eq("TASK_ASSIGNED"),
+                eq("New Task Assigned"),
+                eq("A new task has been assigned to you."),
+                eq(taskId),
+                eq(mockMetadata)
+        );
+        verify(processedEventRepository, times(1)).saveAndFlush(any());
+    }
+
+    @Test
+    void testProcessTaskCreatedEventCreatesNotification() {
+        UUID eventId = UUID.randomUUID();
+        UUID orgId = UUID.randomUUID();
+        UUID taskId = UUID.randomUUID();
+        UUID assignedTo = UUID.randomUUID();
+        String payload = String.format("{\"organizationId\":\"%s\",\"taskId\":\"%s\",\"assignedTo\":\"%s\"}", orgId, taskId, assignedTo);
+
+        EventEnvelope envelope = new EventEnvelope(eventId, "TaskCreated", "TASK", taskId, payload);
+        Map<String, Object> mockMetadata = Map.of("taskId", taskId.toString(), "taskTitle", "Created Task");
+
+        when(processedEventRepository.existsById(eventId)).thenReturn(false);
+        when(notificationMetadataEnricher.buildTaskAssignedMetadata(eq(taskId), any())).thenReturn(mockMetadata);
+
+        boolean processed = eventProcessingService.processEvent(envelope);
+
+        assertTrue(processed);
+        verify(notificationService, times(1)).createNotification(
+                eq(assignedTo),
+                eq(orgId),
+                eq("TASK_ASSIGNED"),
+                eq("New Task Assigned"),
+                eq("A new task has been assigned to you."),
+                eq(taskId),
+                eq(mockMetadata)
+        );
+        verify(processedEventRepository, times(1)).saveAndFlush(any());
+    }
+
+    @Test
+    void testProcessTaskAssignedEventNotificationFailurePropagatesException() {
+        UUID eventId = UUID.randomUUID();
+        UUID orgId = UUID.randomUUID();
+        UUID taskId = UUID.randomUUID();
+        UUID assignedTo = UUID.randomUUID();
+        String payload = String.format("{\"organizationId\":\"%s\",\"taskId\":\"%s\",\"assignedTo\":\"%s\"}", orgId, taskId, assignedTo);
+
+        EventEnvelope envelope = new EventEnvelope(eventId, "TaskAssigned", "TASK", taskId, payload);
+
+        when(processedEventRepository.existsById(eventId)).thenReturn(false);
+        when(notificationService.createNotification(any(), any(), any(), any(), any(), any(), any()))
+                .thenThrow(new RuntimeException("Notification service failure"));
+
+        assertThrows(RuntimeException.class, () -> eventProcessingService.processEvent(envelope));
+
+        verify(processedEventRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
     void testProcessInvalidEnvelope() {
         boolean processedNull = eventProcessingService.processEvent(null);
         assertFalse(processedNull);
